@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/codeupify/upify/internal/config"
@@ -21,7 +20,7 @@ var (
 func init() {
 	rootCmd.AddCommand(initCmd)
 
-	initCmd.Flags().StringVarP(&framework, "framework", "f", "", "Framework used (None, Flask, Express)")
+	initCmd.Flags().StringVarP(&framework, "framework", "f", "", "Framework used (none, flask, express)")
 	initCmd.Flags().StringVarP(&entrypoint, "entrypoint", "e", "", "Path to your main application file")
 	initCmd.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite existing files")
 }
@@ -40,7 +39,7 @@ func getParams(cmd *cobra.Command) error {
 		questions := []*survey.Question{
 			{
 				Name:     "framework",
-				Prompt:   &survey.Select{Message: "Choose a framework:", Options: []string{"None", "Flask", "Express"}},
+				Prompt:   &survey.Select{Message: "Choose a framework:", Options: []string{"none", "flask", "express"}},
 				Validate: survey.Required,
 			},
 			{
@@ -75,7 +74,7 @@ func getParams(cmd *cobra.Command) error {
 			return err
 		}
 
-		framework = strings.ToLower(answers.Framework)
+		framework = answers.Framework
 		entrypoint = answers.Entrypoint
 	}
 

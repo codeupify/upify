@@ -28,3 +28,4 @@ go.work.sum
 .vscode
 
 .upify
+.upify_test
