@@ -251,7 +251,7 @@ func getOrCreateLambda(sess *session.Session, functionName string, zipPath strin
 				FunctionName: aws.String(functionName),
 				Handler:      aws.String("handler.handler"),
 				Role:         aws.String(roleArn),
-				Runtime:      aws.String("python3.8"),
+				Runtime:      aws.String("python3.12"),
 			})
 			if err != nil {
 				log.Fatalf("Failed to create function: %v", err)
