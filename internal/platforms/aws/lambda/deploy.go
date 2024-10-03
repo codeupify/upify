@@ -1,4 +1,4 @@
-package main
+package lambda
 
 import (
 	"archive/zip"
@@ -38,9 +38,9 @@ func main() {
 		log.Fatalf("Failed to copy files to temp directory: %v", err)
 	}
 
-	err = copyFile(".upify/handler.py", filepath.Join(tempDir, "handler.py"))
+	err = copyFile(".upify/lambda_handler.py", filepath.Join(tempDir, "lambda_handler.py"))
 	if err != nil {
-		log.Fatalf("Failed to copy handler.py: %v", err)
+		log.Fatalf("Failed to copy lambda_handler.py: %v", err)
 	}
 
 	err = installRequirements(tempDir)
@@ -249,7 +249,7 @@ func getOrCreateLambda(sess *session.Session, functionName string, zipPath strin
 					ZipFile: zipBytes,
 				},
 				FunctionName: aws.String(functionName),
-				Handler:      aws.String("handler.handler"),
+				Handler:      aws.String("lambda_handler.handler"),
 				Role:         aws.String(roleArn),
 				Runtime:      aws.String("python3.12"),
 			})

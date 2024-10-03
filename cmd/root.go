@@ -6,8 +6,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "upify",
-	Short: "Upify helps you deploy applications to the cloud effortlessly.",
-	Long:  `Upify is a CLI tool designed to simplify cloud deployments for various runtimes and platforms.`,
+	Short: "Upify helps you quickly and easily deploy apps in the cloud",
+	Long:  `Upify is a platform and cloud agnostic CLI tool designed to simplify cloud deployments`,
 }
 
 func Execute() error {

@@ -13,10 +13,23 @@ const (
 )
 
 type Config struct {
-	Framework      string `yaml:"framework"`
-	Language       string `yaml:"language"`
-	PackageManager string `yaml:"package_manager"`
-	Entrypoint     string `yaml:"entrypoint"`
+	Framework      string             `yaml:"framework"`
+	Language       string             `yaml:"language"`
+	PackageManager string             `yaml:"package_manager"`
+	Entrypoint     string             `yaml:"entrypoint"`
+	Name           string             `yaml:"name"`
+	AWSLambda      *AWSLambdaConfig   `yaml:"aws-lambda,omitempty"`
+	GCPCloudRun    *GCPCloudRunConfig `yaml:"gcp-cloudrun,omitempty"`
+}
+
+type AWSLambdaConfig struct {
+	Region   string `yaml:"region"`
+	RoleName string `yaml:"role_name"`
+	Runtime  string `yaml:"runtime"`
+}
+
+type GCPCloudRunConfig struct {
+	// TODO
 }
 
 func GetConfigFilePath() string {

@@ -112,6 +112,15 @@ func determinePackageManager(language string) string {
 	}
 }
 
+func determineName() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Couldn't determine name: ", err)
+		return ""
+	}
+	return filepath.Base(cwd)
+}
+
 func checkOverwrite() (bool, error) {
 	if manualMode {
 		return overwrite, nil
@@ -131,7 +140,7 @@ func checkOverwrite() (bool, error) {
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize your project for deployment",
+	Short: "Initilizes Upify",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := getParams(cmd); err != nil {
 			return err
@@ -139,6 +148,7 @@ var initCmd = &cobra.Command{
 
 		language := determineLanguage(entrypoint)
 		packageManager := determinePackageManager(language)
+		name := determineName()
 
 		if config.ConfigExists() {
 			shouldOverwrite, err := checkOverwrite()
@@ -147,6 +157,7 @@ var initCmd = &cobra.Command{
 			}
 
 			if !shouldOverwrite {
+				fmt.Println("Configuration already exists, to overwrite, run 'upify init --overwrite'")
 				return nil
 			}
 		}
@@ -156,6 +167,7 @@ var initCmd = &cobra.Command{
 			Language:       language,
 			PackageManager: packageManager,
 			Entrypoint:     entrypoint,
+			Name:           name,
 		}
 
 		if err := config.SaveConfig(cfg); err != nil {
