@@ -16,54 +16,58 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/lambda"
-)
-
-const (
-	functionName = "test1"
-	region       = "us-east-1"
-	roleName     = "test-role1"
+	"github.com/codeupify/upify/internal/config"
 )
 
 var excludedDirs = []string{".git", "node_modules", "venv", ".", ".upify"}
 
-func main() {
+func Deploy(cfg *config.Config) error {
+	if cfg.AWSLambda == nil {
+		return fmt.Errorf("AWS Lambda configuration is missing")
+	}
+
 	tempDir, err := os.MkdirTemp("", "lambda_deployment_")
 	if err != nil {
-		log.Fatalf("Failed to create temp directory: %v", err)
+		return fmt.Errorf("failed to create temp directory: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
 	err = copyFilesToTempDir(".", tempDir)
 	if err != nil {
-		log.Fatalf("Failed to copy files to temp directory: %v", err)
+		return fmt.Errorf("failed to copy files to temp directory: %v", err)
 	}
 
 	err = copyFile(".upify/lambda_handler.py", filepath.Join(tempDir, "lambda_handler.py"))
 	if err != nil {
-		log.Fatalf("Failed to copy lambda_handler.py: %v", err)
+		return fmt.Errorf("failed to copy lambda_handler.py: %v", err)
 	}
 
-	err = installRequirements(tempDir)
+	err = installRequirements(tempDir, cfg.Framework)
 	if err != nil {
-		log.Fatalf("Failed to install requirements: %v", err)
+		return fmt.Errorf("failed to install requirements: %v", err)
 	}
 
 	zipBuffer, err := createZip(tempDir)
 	if err != nil {
-		log.Fatalf("Failed to create zip: %v", err)
+		return fmt.Errorf("failed to create zip: %v", err)
 	}
 
 	zipPath := filepath.Join(tempDir, "output.zip")
 	os.WriteFile(zipPath, zipBuffer.Bytes(), 0644)
 
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(region),
+		Region: aws.String(cfg.AWSLambda.Region),
 	})
 	if err != nil {
-		log.Fatalf("Failed to create session: %v", err)
+		return fmt.Errorf("failed to create session: %v", err)
 	}
 
-	getOrCreateLambda(sess, functionName, zipPath)
+	err = getOrCreateLambda(sess, cfg, zipPath)
+	if err != nil {
+		return fmt.Errorf("failed to get or create Lambda: %v", err)
+	}
+
+	return nil
 }
 
 func copyFilesToTempDir(srcDir, destDir string) error {
@@ -110,11 +114,27 @@ func copyFile(src, dest string) error {
 	return err
 }
 
-func installRequirements(dir string) error {
-	cmd := exec.Command("pip", "install", "-r", "requirements.txt", "-t", dir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+func installRequirements(dir string, framework string) error {
+	if _, err := os.Stat(filepath.Join(dir, "requirements.txt")); err == nil {
+		cmd := exec.Command("pip", "install", "-r", "requirements.txt", "-t", dir)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to install requirements: %v", err)
+		}
+	}
+
+	if strings.ToLower(framework) == "flask" {
+		cmd := exec.Command("pip", "install", "apig-wsgi", "-t", dir)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to install apig-wsgi: %v", err)
+		}
+		fmt.Println("Installed apig-wsgi for Flask framework")
+	}
+
+	return nil
 }
 
 func createZip(dir string) (*bytes.Buffer, error) {
@@ -174,7 +194,7 @@ func createZip(dir string) (*bytes.Buffer, error) {
 	return buffer, nil
 }
 
-func getOrCreateRole(svc *iam.IAM) (string, error) {
+func getOrCreateRole(svc *iam.IAM, roleName string) (string, error) {
 	getRoleInput := &iam.GetRoleInput{
 		RoleName: aws.String(roleName),
 	}
@@ -217,85 +237,85 @@ func getOrCreateRole(svc *iam.IAM) (string, error) {
 	return *result.Role.Arn, nil
 }
 
-func getOrCreateLambda(sess *session.Session, functionName string, zipPath string) {
-	var err error
-
+func getOrCreateLambda(sess *session.Session, cfg *config.Config, zipPath string) error {
 	zipFile, err := os.Open(zipPath)
 	if err != nil {
-		log.Fatalf("Failed to open zip file: %v", err)
+		return fmt.Errorf("failed to open zip file: %v", err)
 	}
 	defer zipFile.Close()
 
 	zipBytes, err := io.ReadAll(zipFile)
 	if err != nil {
-		log.Fatalf("Failed to read zip file: %v", err)
+		return fmt.Errorf("failed to read zip file: %v", err)
 	}
 
 	lambdaSvc := lambda.New(sess)
 	iamSvc := iam.New(sess)
 	_, err = lambdaSvc.GetFunction(&lambda.GetFunctionInput{
-		FunctionName: aws.String(functionName),
+		FunctionName: aws.String(cfg.Name),
 	})
 
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == lambda.ErrCodeResourceNotFoundException {
-			roleArn, err := getOrCreateRole(iamSvc)
+			roleArn, err := getOrCreateRole(iamSvc, cfg.AWSLambda.RoleName)
 			if err != nil {
-				log.Fatalf("Failed to get or create IAM role: %v", err)
+				return fmt.Errorf("failed to get or create IAM role: %v", err)
 			}
 
 			_, err = lambdaSvc.CreateFunction(&lambda.CreateFunctionInput{
 				Code: &lambda.FunctionCode{
 					ZipFile: zipBytes,
 				},
-				FunctionName: aws.String(functionName),
+				FunctionName: aws.String(cfg.Name),
 				Handler:      aws.String("lambda_handler.handler"),
 				Role:         aws.String(roleArn),
-				Runtime:      aws.String("python3.12"),
+				Runtime:      aws.String(cfg.AWSLambda.Runtime),
 			})
 			if err != nil {
-				log.Fatalf("Failed to create function: %v", err)
+				return fmt.Errorf("failed to create function: %v", err)
 			}
 			fmt.Println("Successfully created and deployed Python app to AWS Lambda")
 		} else {
-			log.Fatalf("Failed to check if function exists: %v", err)
+			return fmt.Errorf("failed to check if function exists: %v", err)
 		}
 	} else {
 		_, err = lambdaSvc.UpdateFunctionCode(&lambda.UpdateFunctionCodeInput{
-			FunctionName: aws.String(functionName),
+			FunctionName: aws.String(cfg.Name),
 			ZipFile:      zipBytes,
 		})
 		if err != nil {
-			log.Fatalf("Failed to update function code: %v", err)
+			return fmt.Errorf("failed to update function code: %v", err)
 		}
 		fmt.Println("Successfully updated Python app on AWS Lambda")
 	}
 
-	err = addPublicAccessPermission(lambdaSvc, functionName)
+	err = addPublicAccessPermission(lambdaSvc, cfg.Name)
 	if err != nil {
 		log.Printf("Warning: Failed to add public access permission: %v", err)
 	}
 
 	createUrlConfig, err := lambdaSvc.CreateFunctionUrlConfig(&lambda.CreateFunctionUrlConfigInput{
 		AuthType:     aws.String("NONE"),
-		FunctionName: aws.String(functionName),
+		FunctionName: aws.String(cfg.Name),
 	})
 
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == lambda.ErrCodeResourceConflictException {
 			getUrlConfig, err := lambdaSvc.GetFunctionUrlConfig(&lambda.GetFunctionUrlConfigInput{
-				FunctionName: aws.String(functionName),
+				FunctionName: aws.String(cfg.Name),
 			})
 			if err != nil {
-				log.Fatalf("Failed to get function URL: %v", err)
+				return fmt.Errorf("failed to get function URL: %v", err)
 			}
 			fmt.Printf("Existing Function URL: %s\n", *getUrlConfig.FunctionUrl)
 		} else {
-			log.Fatalf("Failed to create function URL: %v", err)
+			return fmt.Errorf("failed to create function URL: %v", err)
 		}
 	} else {
 		fmt.Printf("New Function URL: %s\n", *createUrlConfig.FunctionUrl)
 	}
+
+	return nil
 }
 
 func addPublicAccessPermission(lambdaSvc *lambda.Lambda, functionName string) error {
@@ -311,7 +331,6 @@ func addPublicAccessPermission(lambdaSvc *lambda.Lambda, functionName string) er
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case lambda.ErrCodeResourceConflictException:
-				// Permission already exists
 				return nil
 			default:
 				return fmt.Errorf("failed to add permission: %v", err)

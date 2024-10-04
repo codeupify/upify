@@ -1,12 +1,12 @@
 # Flask
 
-## AWS Lambda
-
 Create an `.upify` folder with a `config.yml` that describes your app:
 
 ```bash
 upify init
 ```
+
+## AWS Lambda
 
 Add a `lambda_handler.py` and an `aws-lambda` section to the config with this command:
 

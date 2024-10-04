@@ -92,7 +92,7 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 		handlerExt = ".js"
 	case "none":
 		if cfg.Language == "python" {
-			content = fmt.Sprintf(NoneLambdaHandlerTemplate, moduleName, moduleName)
+			content = fmt.Sprintf(NoneLambdaHandlerTemplate, moduleName)
 			handlerExt = ".py"
 		} else if cfg.Language == "javascript" {
 			content = fmt.Sprintf(ExpressLambdaHandlerTemplate, moduleName)
