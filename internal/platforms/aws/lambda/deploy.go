@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -37,12 +38,13 @@ func Deploy(cfg *config.Config) error {
 		return fmt.Errorf("failed to copy files to temp directory: %v", err)
 	}
 
-	err = copyFile(".upify/lambda_handler.py", filepath.Join(tempDir, "lambda_handler.py"))
+	handler_file := determineHandler(cfg.Language)
+	err = copyFile(filepath.Join(".upify", handler_file), filepath.Join(tempDir, handler_file))
 	if err != nil {
-		return fmt.Errorf("failed to copy lambda_handler.py: %v", err)
+		return fmt.Errorf("failed to copy %s: %v", handler_file, err)
 	}
 
-	err = installRequirements(tempDir, cfg.Framework)
+	err = installRequirements(tempDir, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to install requirements: %v", err)
 	}
@@ -114,13 +116,25 @@ func copyFile(src, dest string) error {
 	return err
 }
 
-func installRequirements(dir string, framework string) error {
-	if _, err := os.Stat(filepath.Join(dir, "requirements.txt")); err == nil {
-		cmd := exec.Command("pip", "install", "-r", "requirements.txt", "-t", dir)
+func installRequirements(dir string, cfg *config.Config) error {
+	switch strings.ToLower(cfg.PackageManager) {
+	case "pip":
+		return installPythonRequirements(dir, cfg.Framework)
+	case "npm", "yarn":
+		return installNodeRequirements(dir, cfg.Framework, cfg.PackageManager)
+	default:
+		return fmt.Errorf("unsupported package manager: %s", cfg.PackageManager)
+	}
+}
+
+func installPythonRequirements(dir string, framework string) error {
+	requirementsFile := filepath.Join(dir, "requirements.txt")
+	if _, err := os.Stat(requirementsFile); err == nil {
+		cmd := exec.Command("pip", "install", "-r", requirementsFile, "-t", dir)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to install requirements: %v", err)
+			return fmt.Errorf("failed to install Python requirements: %v", err)
 		}
 	}
 
@@ -132,6 +146,53 @@ func installRequirements(dir string, framework string) error {
 			return fmt.Errorf("failed to install apig-wsgi: %v", err)
 		}
 		fmt.Println("Installed apig-wsgi for Flask framework")
+	}
+
+	return nil
+}
+
+func installNodeRequirements(dir string, framework, packageManager string) error {
+	packageJsonFile := filepath.Join(dir, "package.json")
+	if _, err := os.Stat(packageJsonFile); err == nil {
+		var installCmd, buildCmd *exec.Cmd
+		if packageManager == "npm" {
+			installCmd = exec.Command("npm", "install")
+			buildCmd = exec.Command("npm", "run", "build")
+		} else {
+			installCmd = exec.Command("yarn", "install")
+			buildCmd = exec.Command("yarn", "build")
+		}
+
+		installCmd.Dir = dir
+		installCmd.Stdout = os.Stdout
+		installCmd.Stderr = os.Stderr
+		if err := installCmd.Run(); err != nil {
+			return fmt.Errorf("failed to install Node.js dependencies: %v", err)
+		}
+
+		buildCmd.Dir = dir
+		buildCmd.Stdout = os.Stdout
+		buildCmd.Stderr = os.Stderr
+		if err := buildCmd.Run(); err != nil {
+			return fmt.Errorf("failed to build Node.js project: %v", err)
+		}
+		fmt.Println("Successfully built Node.js project")
+	}
+
+	if strings.ToLower(framework) == "express" {
+		var cmd *exec.Cmd
+		if packageManager == "npm" {
+			cmd = exec.Command("npm", "install", "serverless-http", "--save")
+		} else {
+			cmd = exec.Command("yarn", "add", "serverless-http")
+		}
+		cmd.Dir = dir
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to install serverless-http: %v", err)
+		}
+		fmt.Println("Installed serverless-http for Express framework")
 	}
 
 	return nil
@@ -233,6 +294,9 @@ func getOrCreateRole(svc *iam.IAM, roleName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	fmt.Println("Waiting for role to be fully ready...")
+	time.Sleep(15 * time.Second)
 
 	return *result.Role.Arn, nil
 }
@@ -340,4 +404,17 @@ func addPublicAccessPermission(lambdaSvc *lambda.Lambda, functionName string) er
 	}
 
 	return nil
+}
+
+func determineHandler(language string) string {
+	switch language {
+	case "python":
+		return "lambda_handler.py"
+	case "javascript":
+		return "lambda_handler.js"
+	case "typescript":
+		return "lambda_handler.js"
+	default:
+		return ""
+	}
 }

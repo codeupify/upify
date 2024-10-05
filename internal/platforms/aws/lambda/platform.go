@@ -1,6 +1,7 @@
 package lambda
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,31 +10,8 @@ import (
 	"github.com/codeupify/upify/internal/config"
 )
 
-const (
-	FlaskLambdaHandlerTemplate = `from apig_wsgi import make_lambda_handler
-import %s
-
-# Modify '%s.flask_app' to match your Flask app
-handler = make_lambda_handler(%s.flask_app)
-`
-
-	NoneLambdaHandlerTemplate = `import %s
-
-""" Event payload format is API Gateway format 2 
-https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html#http-api-develop-integrations-lambda.proxy-format """
-
-def handler(event, context):
-    """ Wrap your python code to make it handle web requests and return web responses. 
-    Look at the example code at https://.... """
-    pass
-`
-	ExpressLambdaHandlerTemplate = `const serverless = require('serverless-http');
-
-const express_app = require('./%s');
-
-module.exports.handler = serverless(express_app);
-`
-)
+//go:embed templates/*
+var templateFS embed.FS
 
 func AddConfig(cfg *config.Config) error {
 	if cfg.AWSLambda != nil {
@@ -79,23 +57,23 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 	moduleName := strings.TrimSuffix(filepath.Base(cfg.Entrypoint), filepath.Ext(cfg.Entrypoint))
 
 	var (
-		content    string
-		handlerExt string
+		templateName string
+		handlerExt   string
 	)
 
 	switch cfg.Framework {
 	case "flask":
-		content = fmt.Sprintf(FlaskLambdaHandlerTemplate, moduleName, moduleName, moduleName)
+		templateName = "flask_lambda_handler_template.py"
 		handlerExt = ".py"
 	case "express":
-		content = fmt.Sprintf(ExpressLambdaHandlerTemplate, moduleName)
+		templateName = "express_lambda_handler_template.js"
 		handlerExt = ".js"
 	case "none":
 		if cfg.Language == "python" {
-			content = fmt.Sprintf(NoneLambdaHandlerTemplate, moduleName)
+			templateName = "python_lambda_handler_template.py"
 			handlerExt = ".py"
-		} else if cfg.Language == "javascript" {
-			content = fmt.Sprintf(ExpressLambdaHandlerTemplate, moduleName)
+		} else if cfg.Language == "javascript" || cfg.Language == "typescript" {
+			templateName = "javascript_lambda_handler_template.js"
 			handlerExt = ".js"
 		} else {
 			return fmt.Errorf("unsupported language for 'none' framework: %s", cfg.Language)
@@ -104,9 +82,16 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 		return fmt.Errorf("unsupported framework for lambda handler generation: %s", cfg.Framework)
 	}
 
+	content, err := templateFS.ReadFile(filepath.Join("templates", templateName))
+	if err != nil {
+		return fmt.Errorf("failed to read template file: %w", err)
+	}
+
+	handlerContent := strings.ReplaceAll(string(content), "{MODULE_NAME}", moduleName)
+
 	handlerPath := filepath.Join(upifyDir, "lambda_handler"+handlerExt)
 
-	if err := os.WriteFile(handlerPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(handlerPath, []byte(handlerContent), 0644); err != nil {
 		return fmt.Errorf("failed to write lambda handler file: %w", err)
 	}
 
