@@ -1,0 +1,5 @@
+name: javascript
+framework: none
+language: javascript
+package_manager: npm
+module_system: commonjs

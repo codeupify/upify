@@ -1,0 +1,5 @@
+name: typescript
+framework: none
+language: typescript
+package_manager: npm
+module_system: es6

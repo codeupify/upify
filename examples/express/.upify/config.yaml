@@ -1,0 +1,7 @@
+name: express
+framework: express
+language: javascript
+package_manager: npm
+entrypoint: index.js
+app_var: app
+module_system: commonjs

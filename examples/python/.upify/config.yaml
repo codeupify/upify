@@ -1,0 +1,4 @@
+name: python
+framework: none
+language: python
+package_manager: pip

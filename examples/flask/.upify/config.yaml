@@ -1,0 +1,6 @@
+name: flask
+framework: flask
+language: python
+package_manager: pip
+entrypoint: main.py
+app_var: flask_app
