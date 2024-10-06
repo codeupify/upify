@@ -23,8 +23,8 @@ import (
 var excludedDirs = []string{".git", "node_modules", "venv", ".", ".upify"}
 
 func Deploy(cfg *config.Config) error {
-	if cfg.AWSLambda == nil {
-		return fmt.Errorf("AWS Lambda configuration is missing")
+	if err := validateAWSLambdaConfig(cfg); err != nil {
+		return err
 	}
 
 	tempDir, err := os.MkdirTemp("", "lambda_deployment_")
@@ -417,4 +417,20 @@ func determineHandler(language string) string {
 	default:
 		return ""
 	}
+}
+
+func validateAWSLambdaConfig(cfg *config.Config) error {
+	if cfg.AWSLambda == nil {
+		return fmt.Errorf("AWS Lambda configuration is missing")
+	}
+	if cfg.AWSLambda.Region == "" {
+		return fmt.Errorf("AWS Lambda region is not specified")
+	}
+	if cfg.AWSLambda.RoleName == "" {
+		return fmt.Errorf("AWS Lambda role name is not specified")
+	}
+	if cfg.AWSLambda.Runtime == "" {
+		return fmt.Errorf("AWS Lambda runtime is not specified")
+	}
+	return nil
 }

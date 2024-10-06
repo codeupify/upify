@@ -24,10 +24,6 @@ Example:
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid configuration: %w", err)
-		}
-
 		return deploy(platform, cfg)
 	},
 }

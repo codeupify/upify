@@ -49,12 +49,12 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 		return fmt.Errorf("entrypoint is not specified in the configuration")
 	}
 
-	upifyDir := ".upify"
-	if err := os.MkdirAll(upifyDir, 0755); err != nil {
-		return fmt.Errorf("failed to create .upify directory: %w", err)
-	}
-
 	moduleName := strings.TrimSuffix(filepath.Base(cfg.Entrypoint), filepath.Ext(cfg.Entrypoint))
+	appVar := cfg.AppVar
+
+	if appVar == "" {
+		return fmt.Errorf("app variable is not specified in the configuration")
+	}
 
 	var (
 		templateName string
@@ -88,8 +88,9 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 	}
 
 	handlerContent := strings.ReplaceAll(string(content), "{MODULE_NAME}", moduleName)
+	// handlerContent = strings.ReplaceAll(handlerContent, "{EXPORT_VAR}", exportVar)
 
-	handlerPath := filepath.Join(upifyDir, "lambda_handler"+handlerExt)
+	handlerPath := filepath.Join(".", "lambda_handler"+handlerExt)
 
 	if err := os.WriteFile(handlerPath, []byte(handlerContent), 0644); err != nil {
 		return fmt.Errorf("failed to write lambda handler file: %w", err)
