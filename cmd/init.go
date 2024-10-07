@@ -16,10 +16,32 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 }
 
+func promptModuleSystem() (config.ModuleSystem, error) {
+	moduleSystemQ := []*survey.Question{
+		{
+			Name: "moduleSystem",
+			Prompt: &survey.Select{
+				Message: "Choose the module system:",
+				Options: []string{"commonjs", "es6"},
+				Default: "commonjs",
+			},
+			Validate: survey.Required,
+		},
+	}
+
+	var moduleSystem string
+	if err := survey.Ask(moduleSystemQ, &moduleSystem); err != nil {
+		return "", fmt.Errorf("failed to get module system: %w", err)
+	}
+
+	return config.ModuleSystem(moduleSystem), nil
+}
+
 func validateEntrypoint(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("file does not exist: %s", path)
 	}
+
 	return nil
 }
 
@@ -40,7 +62,11 @@ func detectES6FromPackageJSON() (bool, error) {
 func determineModuleSystem(entrypointPath string) (config.ModuleSystem, error) {
 
 	es6, err := detectES6FromPackageJSON()
-	if err == nil && es6 {
+	if err != nil {
+		fmt.Printf("Warning: %v. Couldn't determine module system from package.json.\n", err)
+	}
+
+	if es6 {
 		return config.ES6, nil
 	}
 
@@ -61,25 +87,7 @@ func determineModuleSystem(entrypointPath string) (config.ModuleSystem, error) {
 		}
 	}
 
-	fmt.Println("For a JavaScript project, you must choose the module system. CommonJS uses require() and ES6 uses import/export.")
-	moduleSystemQ := []*survey.Question{
-		{
-			Name: "moduleSystem",
-			Prompt: &survey.Select{
-				Message: "Choose the module system (defaults to commonjs):",
-				Options: []string{"commonjs", "es6"},
-				Default: "commonjs",
-			},
-			Validate: survey.Required,
-		},
-	}
-
-	var moduleSystem string
-	if err := survey.Ask(moduleSystemQ, &moduleSystem); err != nil {
-		return "", fmt.Errorf("failed to get module system: %w", err)
-	}
-
-	return config.ModuleSystem(moduleSystem), nil
+	return promptModuleSystem()
 }
 
 func determinePackageManager(language config.Language) (config.PackageManager, error) {
@@ -125,6 +133,110 @@ func determineLanguage(entrypoint string) (config.Language, error) {
 	}
 }
 
+func askFramework() (string, error) {
+	frameworkQ := []*survey.Question{
+		{
+			Name:     "framework",
+			Prompt:   &survey.Select{Message: "Choose a framework:", Options: []string{"express", "flask", "other/none"}},
+			Validate: survey.Required,
+		},
+	}
+
+	var framework string
+	if err := survey.Ask(frameworkQ, &framework); err != nil {
+		return "", err
+	}
+
+	return framework, nil
+}
+
+func askLanguage() (config.Language, error) {
+	languageQ := []*survey.Question{
+		{
+			Name:     "language",
+			Prompt:   &survey.Select{Message: "Choose the language/runtime:", Options: []string{"python", "javascript", "typescript"}},
+			Validate: survey.Required,
+		},
+	}
+
+	var language string
+	if err := survey.Ask(languageQ, &language); err != nil {
+		return "", err
+	}
+
+	return config.Language(language), nil
+}
+
+func askEntrypoint(message string, defaultValue string) (string, error) {
+	entrypointPrompt := &survey.Input{
+		Message: message,
+		Default: defaultValue,
+	}
+
+	var entrypoint string
+	if err := survey.AskOne(entrypointPrompt, &entrypoint, survey.WithValidator(survey.Required)); err != nil {
+		return "", err
+	}
+
+	if err := validateEntrypoint(entrypoint); err != nil {
+		return "", err
+	}
+
+	return entrypoint, nil
+}
+
+func askAppVar(message string, defaultValue string) (string, error) {
+	appVarPrompt := &survey.Input{
+		Message: message,
+		Default: defaultValue,
+	}
+
+	var appVar string
+	if err := survey.AskOne(appVarPrompt, &appVar, survey.WithValidator(survey.Required)); err != nil {
+		return "", err
+	}
+
+	return appVar, nil
+}
+
+func askProjectName() (string, error) {
+	projectNameQ := []*survey.Question{
+		{
+			Name:   "projectName",
+			Prompt: &survey.Input{Message: "Enter a custom project name (leave blank to use current directory name):"},
+		},
+	}
+
+	var projectName string
+	if err := survey.Ask(projectNameQ, &projectName); err != nil {
+		return "", err
+	}
+
+	projectName, err := determineName(projectName)
+	if err != nil {
+		return "", err
+	}
+
+	return projectName, nil
+}
+
+func askOverwriteConfirmation() (bool, error) {
+	confirmOverwriteQ := []*survey.Question{
+		{
+			Name:     "confirmOverwrite",
+			Prompt:   &survey.Confirm{Message: "Existing configuration found. Overwrite?", Default: true},
+			Validate: survey.Required,
+		},
+	}
+
+	var confirmOverwrite bool
+	if err := survey.Ask(confirmOverwriteQ, &confirmOverwrite); err != nil {
+		return false, err
+	}
+
+	return confirmOverwrite, nil
+}
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initializes Upify",
@@ -136,67 +248,45 @@ var initCmd = &cobra.Command{
 			moduleSystem      config.ModuleSystem
 			entrypoint        string
 			appVar            string
+			projectName       string
 		)
 
-		frameworkQ := []*survey.Question{
-			{
-				Name:     "framework",
-				Prompt:   &survey.Select{Message: "Choose a framework:", Options: []string{"express", "flask", "other/none"}},
-				Validate: survey.Required,
-			},
-		}
-
-		var framework string
-		if err := survey.Ask(frameworkQ, &framework); err != nil {
+		framework, err := askFramework()
+		if err != nil {
 			return err
 		}
 
 		switch framework {
 		case "flask":
-			entrypointPrompt := &survey.Input{
-				Message: "Enter the relative path to your main application file (e.g., main.py):",
-				Default: "main.py",
-			}
-			if err := survey.AskOne(entrypointPrompt, &entrypoint, survey.WithValidator(survey.Required)); err != nil {
-				return err
-			}
 
-			if err := validateEntrypoint(entrypoint); err != nil {
+			ret, err := askEntrypoint("Enter the relative path to your main application file (e.g., app.py):", "app.py")
+			if err != nil {
 				return err
 			}
+			entrypoint = ret
 
-			appVarPrompt := &survey.Input{
-				Message: "Enter the name of the Flask application instance variable (default 'app'):",
-				Default: "app",
-			}
-			if err := survey.AskOne(appVarPrompt, &appVar, survey.WithValidator(survey.Required)); err != nil {
+			ret, err = askAppVar("Enter the name of the Flask application instance variable (default 'app'):", "app")
+			if err != nil {
 				return err
 			}
+			appVar = ret
 
 			selectedFramework = config.Framework(framework)
 			selectedLanguage = config.Python
 
 		case "express":
 
-			entrypointPrompt := &survey.Input{
-				Message: "Enter the relative path to your main application file (e.g., app.js):",
-				Default: "app.js",
-			}
-			if err := survey.AskOne(entrypointPrompt, &entrypoint, survey.WithValidator(survey.Required)); err != nil {
+			ret, err := askEntrypoint("Enter the relative path to your main application file (e.g., app.js):", "app.js")
+			if err != nil {
 				return err
 			}
+			entrypoint = ret
 
-			if err := validateEntrypoint(entrypoint); err != nil {
+			ret, err = askAppVar("Enter the name of the Express application instance variable (default 'app'):", "app")
+			if err != nil {
 				return err
 			}
-
-			appVarPrompt := &survey.Input{
-				Message: "Enter the name of the Express export variable (default 'app'):",
-				Default: "app",
-			}
-			if err := survey.AskOne(appVarPrompt, &appVar, survey.WithValidator(survey.Required)); err != nil {
-				return err
-			}
+			appVar = ret
 
 			language, err := determineLanguage(entrypoint)
 			if err != nil {
@@ -207,20 +297,13 @@ var initCmd = &cobra.Command{
 			selectedLanguage = language
 
 		case "other/none":
-			languageQ := []*survey.Question{
-				{
-					Name:     "language",
-					Prompt:   &survey.Select{Message: "Choose the language/runtime:", Options: []string{"python", "javascript", "typescript"}},
-					Validate: survey.Required,
-				},
-			}
 
-			var language string
-			if err := survey.Ask(languageQ, &language); err != nil {
+			language, err := askLanguage()
+			if err != nil {
 				return err
 			}
 
-			selectedLanguage = config.Language(language)
+			selectedLanguage = language
 		}
 
 		if selectedLanguage == config.JavaScript || selectedLanguage == config.TypeScript {
@@ -232,34 +315,16 @@ var initCmd = &cobra.Command{
 			moduleSystem = ms
 		}
 
-		projectNameQ := []*survey.Question{
-			{
-				Name:   "projectName",
-				Prompt: &survey.Input{Message: "Enter a custom project name (leave blank to use current directory name):"},
-			},
-		}
-
-		var projectName string
-		if err := survey.Ask(projectNameQ, &projectName); err != nil {
-			return err
-		}
-
-		projectName, err := determineName(projectName)
+		ret, err := askProjectName()
 		if err != nil {
 			return err
 		}
 
-		if config.ConfigExists() {
-			confirmOverwriteQ := []*survey.Question{
-				{
-					Name:     "confirmOverwrite",
-					Prompt:   &survey.Confirm{Message: "Existing configuration found. Overwrite?", Default: false},
-					Validate: survey.Required,
-				},
-			}
+		projectName = ret
 
-			var confirmOverwrite bool
-			if err := survey.Ask(confirmOverwriteQ, &confirmOverwrite); err != nil {
+		if config.ConfigExists() {
+			confirmOverwrite, err := askOverwriteConfirmation()
+			if err != nil {
 				return err
 			}
 
