@@ -1,5 +1,4 @@
-// Note: this template is for CommonJS modules, for ES modules use this template: TODO
-const importedModule = require('./index');
+const { getWeatherData } = require('./index');
 
 /**
  * Event payload format is API Gateway format 2
@@ -7,6 +6,7 @@ const importedModule = require('./index');
  */
 
 exports.handler = async (event, context) => {
+    console.log(event);
     if (!event.queryStringParameters) {
         console.log("Specify a city in the query string");
         return {
@@ -19,7 +19,7 @@ exports.handler = async (event, context) => {
     console.log("Got a weather request for " + city);
     
     try {
-        const responseData = await main.getWeatherData(city);
+        const responseData = await getWeatherData(city);
         return {
             statusCode: 200,
             body: JSON.stringify(responseData)

@@ -1,5 +1,7 @@
 name: typescript
-framework: none
 language: typescript
 package_manager: npm
-module_system: es6
+aws-lambda:
+  region: us-east-1
+  role_name: typescript-role
+  runtime: nodejs18.x

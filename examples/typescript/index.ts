@@ -15,7 +15,7 @@ interface WeatherData {
     name: string;
 }
 
-async function getWeatherData(city: string): Promise<WeatherData> {
+export async function getWeatherData(city: string): Promise<WeatherData> {
     const baseUrl = "http://api.openweathermap.org/data/2.5/weather";
 
     const params = {
@@ -50,5 +50,3 @@ async function main() {
         console.error(error);
     }
 }
-
-main();

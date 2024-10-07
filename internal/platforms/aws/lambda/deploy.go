@@ -22,56 +22,6 @@ import (
 
 var excludedDirs = []string{".git", "node_modules", "venv", ".", ".upify"}
 
-func Deploy(cfg *config.Config) error {
-	if err := validateAWSLambdaConfig(cfg); err != nil {
-		return err
-	}
-
-	tempDir, err := os.MkdirTemp("", "lambda_deployment_")
-	if err != nil {
-		return fmt.Errorf("failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	err = copyFilesToTempDir(".", tempDir)
-	if err != nil {
-		return fmt.Errorf("failed to copy files to temp directory: %v", err)
-	}
-
-	handler_file := determineHandler(cfg.Language)
-	err = copyFile(filepath.Join(".upify", handler_file), filepath.Join(tempDir, handler_file))
-	if err != nil {
-		return fmt.Errorf("failed to copy %s: %v", handler_file, err)
-	}
-
-	err = installRequirements(tempDir, cfg)
-	if err != nil {
-		return fmt.Errorf("failed to install requirements: %v", err)
-	}
-
-	zipBuffer, err := createZip(tempDir)
-	if err != nil {
-		return fmt.Errorf("failed to create zip: %v", err)
-	}
-
-	zipPath := filepath.Join(tempDir, "output.zip")
-	os.WriteFile(zipPath, zipBuffer.Bytes(), 0644)
-
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(cfg.AWSLambda.Region),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create session: %v", err)
-	}
-
-	err = getOrCreateLambda(sess, cfg, zipPath)
-	if err != nil {
-		return fmt.Errorf("failed to get or create Lambda: %v", err)
-	}
-
-	return nil
-}
-
 func copyFilesToTempDir(srcDir, destDir string) error {
 	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -406,19 +356,6 @@ func addPublicAccessPermission(lambdaSvc *lambda.Lambda, functionName string) er
 	return nil
 }
 
-func determineHandler(language config.Language) string {
-	switch language {
-	case config.Python:
-		return "lambda_handler.py"
-	case config.JavaScript:
-		return "lambda_handler.js"
-	case config.TypeScript:
-		return "lambda_handler.js"
-	default:
-		return ""
-	}
-}
-
 func validateAWSLambdaConfig(cfg *config.Config) error {
 	if cfg.AWSLambda == nil {
 		return fmt.Errorf("AWS Lambda configuration is missing")
@@ -432,5 +369,49 @@ func validateAWSLambdaConfig(cfg *config.Config) error {
 	if cfg.AWSLambda.Runtime == "" {
 		return fmt.Errorf("AWS Lambda runtime is not specified")
 	}
+	return nil
+}
+
+func Deploy(cfg *config.Config) error {
+	if err := validateAWSLambdaConfig(cfg); err != nil {
+		return err
+	}
+
+	tempDir, err := os.MkdirTemp("", "lambda_deployment_")
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	err = copyFilesToTempDir(".", tempDir)
+	if err != nil {
+		return fmt.Errorf("failed to copy files to temp directory: %v", err)
+	}
+
+	err = installRequirements(tempDir, cfg)
+	if err != nil {
+		return fmt.Errorf("failed to install requirements: %v", err)
+	}
+
+	zipBuffer, err := createZip(tempDir)
+	if err != nil {
+		return fmt.Errorf("failed to create zip: %v", err)
+	}
+
+	zipPath := filepath.Join(tempDir, "output.zip")
+	os.WriteFile(zipPath, zipBuffer.Bytes(), 0644)
+
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(cfg.AWSLambda.Region),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create session: %v", err)
+	}
+
+	err = getOrCreateLambda(sess, cfg, zipPath)
+	if err != nil {
+		return fmt.Errorf("failed to get or create Lambda: %v", err)
+	}
+
 	return nil
 }

@@ -19,7 +19,6 @@ type Config struct {
 	PackageManager PackageManager     `yaml:"package_manager"`
 	Entrypoint     string             `yaml:"entrypoint,omitempty"`
 	AppVar         string             `yaml:"app_var,omitempty"`
-	ModuleSystem   ModuleSystem       `yaml:"module_system,omitempty"`
 	AWSLambda      *AWSLambdaConfig   `yaml:"aws-lambda,omitempty"`
 	GCPCloudRun    *GCPCloudRunConfig `yaml:"gcp-cloudrun,omitempty"`
 }

@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/codeupify/upify/internal/config"
@@ -16,78 +14,12 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 }
 
-func promptModuleSystem() (config.ModuleSystem, error) {
-	moduleSystemQ := []*survey.Question{
-		{
-			Name: "moduleSystem",
-			Prompt: &survey.Select{
-				Message: "Choose the module system:",
-				Options: []string{"commonjs", "es6"},
-				Default: "commonjs",
-			},
-			Validate: survey.Required,
-		},
-	}
-
-	var moduleSystem string
-	if err := survey.Ask(moduleSystemQ, &moduleSystem); err != nil {
-		return "", fmt.Errorf("failed to get module system: %w", err)
-	}
-
-	return config.ModuleSystem(moduleSystem), nil
-}
-
 func validateEntrypoint(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("file does not exist: %s", path)
 	}
 
 	return nil
-}
-
-func detectES6FromPackageJSON() (bool, error) {
-	packageJSONPath := "./package.json"
-	packageContentBytes, err := os.ReadFile(packageJSONPath)
-	if err != nil {
-		return false, fmt.Errorf("failed to read package.json: %w", err)
-	}
-	var packageJSON map[string]interface{}
-	if err := json.Unmarshal(packageContentBytes, &packageJSON); err != nil {
-		return false, fmt.Errorf("failed to parse package.json: %w", err)
-	}
-
-	return packageJSON["type"] == "module", nil
-}
-
-func determineModuleSystem(entrypointPath string) (config.ModuleSystem, error) {
-
-	es6, err := detectES6FromPackageJSON()
-	if err != nil {
-		fmt.Printf("Warning: %v. Couldn't determine module system from package.json.\n", err)
-	}
-
-	if es6 {
-		return config.ES6, nil
-	}
-
-	if entrypointPath != "" {
-		contentBytes, err := os.ReadFile(entrypointPath)
-		if err != nil {
-			return "", fmt.Errorf("failed to read file: %w", err)
-		}
-		content := string(contentBytes)
-
-		isCommonJS := strings.Contains(content, "require(") || strings.Contains(content, "module.exports")
-		isES6 := strings.Contains(content, "import ") || strings.Contains(content, "export ")
-
-		if isCommonJS {
-			return config.CommonJS, nil
-		} else if isES6 {
-			return config.ES6, nil
-		}
-	}
-
-	return promptModuleSystem()
 }
 
 func determinePackageManager(language config.Language) (config.PackageManager, error) {
@@ -245,7 +177,6 @@ var initCmd = &cobra.Command{
 		var (
 			selectedFramework config.Framework
 			selectedLanguage  config.Language
-			moduleSystem      config.ModuleSystem
 			entrypoint        string
 			appVar            string
 			projectName       string
@@ -306,15 +237,6 @@ var initCmd = &cobra.Command{
 			selectedLanguage = language
 		}
 
-		if selectedLanguage == config.JavaScript || selectedLanguage == config.TypeScript {
-			ms, err := determineModuleSystem(entrypoint)
-			if err != nil {
-				return err
-			}
-
-			moduleSystem = ms
-		}
-
 		ret, err := askProjectName()
 		if err != nil {
 			return err
@@ -346,14 +268,15 @@ var initCmd = &cobra.Command{
 			Entrypoint:     entrypoint,
 			Name:           projectName,
 			AppVar:         appVar,
-			ModuleSystem:   moduleSystem,
 		}
 
 		if err := config.SaveConfig(cfg); err != nil {
 			return fmt.Errorf("failed to save configuration: %w", err)
 		}
 
-		fmt.Println("Configuration saved successfully.")
+		fmt.Println("Creating .upify folder...")
+		fmt.Println("Saving configuration to .upify/config.yml...")
+		fmt.Println("Done!")
 		return nil
 	},
 }

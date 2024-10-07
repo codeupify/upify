@@ -108,7 +108,8 @@ func addAWSLambda(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Println("Added AWS Lambda configuration successfully.")
+	fmt.Println("Saving AWS Lambda configurations to .upify/config.yml...")
+	fmt.Println("Added AWS Lambda platform.")
 	return nil
 }
 

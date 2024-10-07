@@ -1,5 +1,10 @@
 const serverless = require('serverless-http');
+const importedModule = require('./{MODULE_NAME}');
 
-const express_app = require('./{MODULE_NAME}');
+let expressApp = importedModule;
 
-module.exports.handler = serverless(express_app);
+if (importedModule && importedModule['{APP_VAR}']) {
+  expressApp = importedModule['{APP_VAR}'];
+}
+
+module.exports.handler = serverless(expressApp);
