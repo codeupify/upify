@@ -14,12 +14,12 @@ const (
 
 type Config struct {
 	Name           string             `yaml:"name"`
-	Framework      string             `yaml:"framework"`
-	Language       string             `yaml:"language"`
-	PackageManager string             `yaml:"package_manager"`
+	Framework      Framework          `yaml:"framework,omitempty"`
+	Language       Language           `yaml:"language"`
+	PackageManager PackageManager     `yaml:"package_manager"`
 	Entrypoint     string             `yaml:"entrypoint,omitempty"`
 	AppVar         string             `yaml:"app_var,omitempty"`
-	ModuleSystem   string             `yaml:"module_system,omitempty"`
+	ModuleSystem   ModuleSystem       `yaml:"module_system,omitempty"`
 	AWSLambda      *AWSLambdaConfig   `yaml:"aws-lambda,omitempty"`
 	GCPCloudRun    *GCPCloudRunConfig `yaml:"gcp-cloudrun,omitempty"`
 }

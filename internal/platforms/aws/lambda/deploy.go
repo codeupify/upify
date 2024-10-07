@@ -117,17 +117,17 @@ func copyFile(src, dest string) error {
 }
 
 func installRequirements(dir string, cfg *config.Config) error {
-	switch strings.ToLower(cfg.PackageManager) {
-	case "pip":
+	switch cfg.PackageManager {
+	case config.Pip:
 		return installPythonRequirements(dir, cfg.Framework)
-	case "npm", "yarn":
+	case config.Npm, config.Yarn:
 		return installNodeRequirements(dir, cfg.Framework, cfg.PackageManager)
 	default:
 		return fmt.Errorf("unsupported package manager: %s", cfg.PackageManager)
 	}
 }
 
-func installPythonRequirements(dir string, framework string) error {
+func installPythonRequirements(dir string, framework config.Framework) error {
 	requirementsFile := filepath.Join(dir, "requirements.txt")
 	if _, err := os.Stat(requirementsFile); err == nil {
 		cmd := exec.Command("pip", "install", "-r", requirementsFile, "-t", dir)
@@ -138,7 +138,7 @@ func installPythonRequirements(dir string, framework string) error {
 		}
 	}
 
-	if strings.ToLower(framework) == "flask" {
+	if framework == config.Flask {
 		cmd := exec.Command("pip", "install", "apig-wsgi", "-t", dir)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -151,7 +151,7 @@ func installPythonRequirements(dir string, framework string) error {
 	return nil
 }
 
-func installNodeRequirements(dir string, framework, packageManager string) error {
+func installNodeRequirements(dir string, framework config.Framework, packageManager config.PackageManager) error {
 	packageJsonFile := filepath.Join(dir, "package.json")
 	if _, err := os.Stat(packageJsonFile); err == nil {
 		var installCmd, buildCmd *exec.Cmd
@@ -179,7 +179,7 @@ func installNodeRequirements(dir string, framework, packageManager string) error
 		fmt.Println("Successfully built Node.js project")
 	}
 
-	if strings.ToLower(framework) == "express" {
+	if framework == config.Express {
 		var cmd *exec.Cmd
 		if packageManager == "npm" {
 			cmd = exec.Command("npm", "install", "serverless-http", "--save")
@@ -406,13 +406,13 @@ func addPublicAccessPermission(lambdaSvc *lambda.Lambda, functionName string) er
 	return nil
 }
 
-func determineHandler(language string) string {
+func determineHandler(language config.Language) string {
 	switch language {
-	case "python":
+	case config.Python:
 		return "lambda_handler.py"
-	case "javascript":
+	case config.JavaScript:
 		return "lambda_handler.js"
-	case "typescript":
+	case config.TypeScript:
 		return "lambda_handler.js"
 	default:
 		return ""

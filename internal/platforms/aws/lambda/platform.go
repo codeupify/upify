@@ -13,84 +13,90 @@ import (
 //go:embed templates/*
 var templateFS embed.FS
 
-func AddConfig(cfg *config.Config) error {
-	if cfg.AWSLambda != nil {
-		return fmt.Errorf("aws-lambda configuration already exists")
+func getPythonTemplate() (string, string, error) {
+	content, err := templateFS.ReadFile("templates/flask_lambda_handler_template.py")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read Flask template file: %w", err)
 	}
+	handlerPath := filepath.Join(".", "lambda_handler.py")
 
-	runtime := determineRuntime(cfg.Language)
-	if runtime == "" {
-		return fmt.Errorf("unable to determine appropriate runtime for language: %s and framework: %s", cfg.Language, cfg.Framework)
+	return string(content), handlerPath, nil
+}
+
+func getJavascriptTemplate(moduleSystem config.ModuleSystem) (string, string, error) {
+	content, err := templateFS.ReadFile(fmt.Sprintf("templates/node_lambda_handler_template_%s.js", string(moduleSystem)))
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read Node.js template file: %w", err)
 	}
+	handlerPath := filepath.Join(".", "lambda_handler.js")
+	return string(content), handlerPath, nil
+}
+
+func AddConfig(cfg *config.Config, region string, runtime string) error {
 
 	cfg.AWSLambda = &config.AWSLambdaConfig{
-		Region:   "us-east-1",
+		Region:   region,
 		RoleName: fmt.Sprintf("%s-role", cfg.Name),
 		Runtime:  runtime,
 	}
 	return nil
 }
 
-func determineRuntime(language string) string {
-	switch language {
-	case "python":
-		return "python3.12"
-	case "javascript":
-		return "nodejs20.x"
-	case "typescript":
-		return "nodejs20.x"
-	}
-
-	return ""
-}
-
 func GenerateLambdaHandler(cfg *config.Config) error {
-	if cfg.Entrypoint == "" {
-		return fmt.Errorf("entrypoint is not specified in the configuration")
-	}
-
-	moduleName := strings.TrimSuffix(filepath.Base(cfg.Entrypoint), filepath.Ext(cfg.Entrypoint))
-	appVar := cfg.AppVar
-
-	if appVar == "" {
-		return fmt.Errorf("app variable is not specified in the configuration")
-	}
 
 	var (
-		templateName string
-		handlerExt   string
+		handlerContent string
+		handlerPath    string
+		err            error
 	)
 
-	switch cfg.Framework {
-	case "flask":
-		templateName = "flask_lambda_handler_template.py"
-		handlerExt = ".py"
-	case "express":
-		templateName = "express_lambda_handler_template.js"
-		handlerExt = ".js"
-	case "none":
-		if cfg.Language == "python" {
-			templateName = "python_lambda_handler_template.py"
-			handlerExt = ".py"
-		} else if cfg.Language == "javascript" || cfg.Language == "typescript" {
-			templateName = "javascript_lambda_handler_template.js"
-			handlerExt = ".js"
-		} else {
-			return fmt.Errorf("unsupported language for 'none' framework: %s", cfg.Language)
+	if cfg.Framework == "" {
+		switch cfg.Language {
+		case config.Python:
+			handlerContent, handlerPath, err = getPythonTemplate()
+		case config.JavaScript, config.TypeScript:
+			handlerContent, handlerPath, err = getJavascriptTemplate(cfg.ModuleSystem)
+		default:
+			return fmt.Errorf("CLI doesn't support the specified language yet for AWS Lambda: %s", cfg.Language)
 		}
-	default:
-		return fmt.Errorf("unsupported framework for lambda handler generation: %s", cfg.Framework)
+
+		if err != nil {
+			return err
+		}
+	} else {
+		if cfg.Entrypoint == "" {
+			return fmt.Errorf("entrypoint is not specified in the configuration")
+		}
+		if cfg.AppVar == "" {
+			return fmt.Errorf("app variable is not specified in the configuration")
+		}
+
+		moduleName := strings.TrimSuffix(filepath.Base(cfg.Entrypoint), filepath.Ext(cfg.Entrypoint))
+
+		if cfg.Framework == "flask" {
+
+			content, err := templateFS.ReadFile("templates/flask_lambda_handler_template.py")
+			if err != nil {
+				return fmt.Errorf("failed to read Flask template file: %w", err)
+			}
+
+			handlerContent = strings.ReplaceAll(string(content), "{MODULE_NAME}", moduleName)
+			handlerContent = strings.ReplaceAll(handlerContent, "{APP_VAR}", cfg.AppVar)
+			handlerPath = filepath.Join(".", "lambda_handler.py")
+		} else if cfg.Framework == "express" {
+
+			content, err := templateFS.ReadFile("templates/express_lambda_handler_template.js")
+			if err != nil {
+				return fmt.Errorf("failed to read Express template file: %w", err)
+			}
+
+			handlerContent = strings.ReplaceAll(string(content), "{MODULE_NAME}", moduleName)
+			handlerContent = strings.ReplaceAll(handlerContent, "{APP_VAR}", cfg.AppVar)
+			handlerPath = filepath.Join(".", "lambda_handler.js")
+		} else {
+			return fmt.Errorf("CLI doesn't support the specified framework yet for AWS Lambda: %s", cfg.Framework)
+		}
 	}
-
-	content, err := templateFS.ReadFile(filepath.Join("templates", templateName))
-	if err != nil {
-		return fmt.Errorf("failed to read template file: %w", err)
-	}
-
-	handlerContent := strings.ReplaceAll(string(content), "{MODULE_NAME}", moduleName)
-	// handlerContent = strings.ReplaceAll(handlerContent, "{EXPORT_VAR}", exportVar)
-
-	handlerPath := filepath.Join(".", "lambda_handler"+handlerExt)
 
 	if err := os.WriteFile(handlerPath, []byte(handlerContent), 0644); err != nil {
 		return fmt.Errorf("failed to write lambda handler file: %w", err)

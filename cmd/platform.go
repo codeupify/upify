@@ -2,14 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/codeupify/upify/internal/config"
 	"github.com/codeupify/upify/internal/platforms/aws/lambda"
 	"github.com/spf13/cobra"
 )
-
-var supportedPlatforms = []string{"aws-lambda", "gcp-cloudrun"}
 
 var platformCmd = &cobra.Command{
 	Use:   "platform",
@@ -17,19 +15,8 @@ var platformCmd = &cobra.Command{
 }
 
 var platformAddCmd = &cobra.Command{
-	Use:   "add [platform]",
+	Use:   "add",
 	Short: "Add a new platform configuration",
-	Long: fmt.Sprintf(`Add a new platform configuration.
-	
-Available platforms: %s
-
-Example:
-  upify platform add aws-lambda`, strings.Join(supportedPlatforms, ", ")),
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		platform := args[0]
-		return addPlatform(platform)
-	},
 }
 
 var platformListCmd = &cobra.Command{
@@ -40,42 +27,93 @@ var platformListCmd = &cobra.Command{
 	},
 }
 
+var awsLambdaCmd = &cobra.Command{
+	Use:   "aws-lambda",
+	Short: "Add AWS Lambda configuration",
+	RunE:  addAWSLambda,
+}
+
+var awsRegion string
+var awsRuntime string
+
+var gcpCloudRunCmd = &cobra.Command{
+	Use:   "gcp-cloudrun",
+	Short: "Add GCP Cloud Run configuration",
+	RunE:  addGCPCloudRun,
+}
+
 func init() {
 	rootCmd.AddCommand(platformCmd)
 	platformCmd.AddCommand(platformAddCmd)
 	platformCmd.AddCommand(platformListCmd)
+
+	platformAddCmd.AddCommand(awsLambdaCmd)
+	awsLambdaCmd.Flags().StringVar(&awsRegion, "region", "", "AWS region")
+	awsLambdaCmd.Flags().StringVar(&awsRuntime, "runtime", "", "Lambda runtime")
+
+	platformAddCmd.AddCommand(gcpCloudRunCmd)
 }
 
-func addPlatform(platform string) error {
+func getAWSRuntimes(language config.Language) []string {
+	switch language {
+	case config.Python:
+		return []string{"python3.8", "python3.9", "python3.10", "python3.11", "python3.12"}
+	case config.JavaScript, config.TypeScript:
+		return []string{"nodejs18.x", "nodejs20.x"}
+	default:
+		return []string{}
+	}
+}
+
+func addAWSLambda(cmd *cobra.Command, args []string) error {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	switch platform {
-	case "aws-lambda":
-		if err := lambda.AddConfig(cfg); err != nil {
+	if awsRegion == "" {
+		regionQ := &survey.Input{
+			Message: "Enter AWS region:",
+			Default: "us-east-1",
+		}
+		if err := survey.AskOne(regionQ, &awsRegion); err != nil {
 			return err
 		}
-		if err := lambda.GenerateLambdaHandler(cfg); err != nil {
+	}
+
+	if awsRuntime == "" {
+		runtimes := getAWSRuntimes(cfg.Language)
+		if len(runtimes) == 0 {
+			return fmt.Errorf("CLI doesn't support the specified language yet for AWS Lambda: %s", cfg.Language)
+		}
+
+		runtimeQ := &survey.Select{
+			Message: "Choose a runtime:",
+			Options: runtimes,
+		}
+		if err := survey.AskOne(runtimeQ, &awsRuntime); err != nil {
 			return err
 		}
-	case "gcp-cloudrun":
-		if cfg.GCPCloudRun != nil {
-			return fmt.Errorf("gcp-cloudrun configuration already exists")
-		}
-		cfg.GCPCloudRun = &config.GCPCloudRunConfig{
-			// TODO
-		}
-	default:
-		return fmt.Errorf("unsupported platform: %s", platform)
+	}
+
+	if err := lambda.AddConfig(cfg, awsRegion, awsRuntime); err != nil {
+		return err
+	}
+
+	if err := lambda.GenerateLambdaHandler(cfg); err != nil {
+		return err
 	}
 
 	if err := config.SaveConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("Added %s configuration successfully.\n", platform)
+	fmt.Println("Added AWS Lambda configuration successfully.")
+	return nil
+}
+
+func addGCPCloudRun(cmd *cobra.Command, args []string) error {
+	fmt.Println("GCP Cloud Run configuration not yet implemented.")
 	return nil
 }
 
