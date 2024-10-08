@@ -42,7 +42,6 @@ func deploy(platform string, cfg *config.Config) error {
 		if err := lambda.Deploy(cfg); err != nil {
 			return fmt.Errorf("failed to deploy to AWS Lambda: %w", err)
 		}
-		fmt.Println("Deployment to AWS Lambda completed successfully.")
 	// case "gcp-cloudrun":
 	// 	// TODO: Implement GCP Cloud Run deployment
 	// 	return fmt.Errorf("deployment to GCP Cloud Run is not yet implemented")

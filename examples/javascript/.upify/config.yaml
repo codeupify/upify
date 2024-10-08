@@ -1,5 +1,7 @@
 name: javascript
-framework: none
 language: javascript
 package_manager: npm
-module_system: commonjs
+aws-lambda:
+  region: us-east-1
+  role_name: javascript-role
+  runtime: nodejs18.x

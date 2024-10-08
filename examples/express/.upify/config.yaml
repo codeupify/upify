@@ -4,4 +4,7 @@ language: javascript
 package_manager: npm
 entrypoint: index.js
 app_var: app
-module_system: commonjs
+aws-lambda:
+  region: us-east-1
+  role_name: express-role
+  runtime: nodejs18.x

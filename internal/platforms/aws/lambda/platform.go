@@ -61,9 +61,9 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 	} else {
 		switch cfg.Language {
 		case config.Python:
-			content, err := templateFS.ReadFile("templates/flask_lambda_handler_template.py")
+			content, err := templateFS.ReadFile("templates/python_lambda_handler_template.py")
 			if err != nil {
-				return fmt.Errorf("failed to read Flask template file: %w", err)
+				return fmt.Errorf("failed to read Python template file: %w", err)
 			}
 
 			handlerContent = string(content)

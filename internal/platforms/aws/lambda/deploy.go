@@ -3,6 +3,7 @@ package lambda
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -21,6 +22,10 @@ import (
 	"github.com/codeupify/upify/internal/config"
 	"github.com/joho/godotenv"
 )
+
+type PackageJSON struct {
+	Scripts map[string]string `json:"scripts"`
+}
 
 var excludedDirs = []string{".git", "node_modules", "venv", ".", ".upify"}
 
@@ -124,16 +129,33 @@ func installPythonRequirements(dir string, framework config.Framework) error {
 	return nil
 }
 
+func parsePackageJSON(path string) (*PackageJSON, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var pkg PackageJSON
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil, err
+	}
+
+	return &pkg, nil
+}
+
 func installNodeRequirements(dir string, framework config.Framework, packageManager config.PackageManager) error {
 	packageJsonFile := filepath.Join(dir, "package.json")
 	if _, err := os.Stat(packageJsonFile); err == nil {
-		var installCmd, buildCmd *exec.Cmd
-		if packageManager == "npm" {
+		pkg, err := parsePackageJSON(packageJsonFile)
+		if err != nil {
+			return fmt.Errorf("failed to parse package.json: %v", err)
+		}
+
+		var installCmd *exec.Cmd
+		if packageManager == config.Npm {
 			installCmd = exec.Command("npm", "install")
-			buildCmd = exec.Command("npm", "run", "build")
 		} else {
 			installCmd = exec.Command("yarn", "install")
-			buildCmd = exec.Command("yarn", "build")
 		}
 
 		installCmd.Dir = dir
@@ -143,13 +165,42 @@ func installNodeRequirements(dir string, framework config.Framework, packageMana
 			return fmt.Errorf("failed to install Node.js dependencies: %v", err)
 		}
 
-		buildCmd.Dir = dir
-		buildCmd.Stdout = os.Stdout
-		buildCmd.Stderr = os.Stderr
-		if err := buildCmd.Run(); err != nil {
-			return fmt.Errorf("failed to build Node.js project: %v", err)
+		if framework == config.Express {
+			var cmd *exec.Cmd
+			if packageManager == config.Npm {
+				cmd = exec.Command("npm", "install", "serverless-http", "--save")
+			} else {
+				cmd = exec.Command("yarn", "add", "serverless-http")
+			}
+			cmd.Dir = dir
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("failed to install serverless-http: %v", err)
+			}
+			fmt.Println("Installed serverless-http for Express framework")
 		}
-		fmt.Println("Successfully built Node.js project")
+
+		if _, hasBuild := pkg.Scripts["build"]; hasBuild {
+			var buildCmd *exec.Cmd
+			if packageManager == config.Npm {
+				buildCmd = exec.Command("npm", "run", "build")
+			} else {
+				buildCmd = exec.Command("yarn", "build")
+			}
+
+			buildCmd.Dir = dir
+			buildCmd.Stdout = os.Stdout
+			buildCmd.Stderr = os.Stderr
+			if err := buildCmd.Run(); err != nil {
+				return fmt.Errorf("failed to build Node.js project: %v", err)
+			}
+			fmt.Println("Successfully built Node.js project")
+		} else {
+			fmt.Println("No build script found; skipping build step")
+		}
+	} else {
+		return fmt.Errorf("package.json not found in directory: %s", dir)
 	}
 
 	if framework == config.Express {
@@ -380,12 +431,12 @@ func getOrCreateLambda(sess *session.Session, cfg *config.Config, zipPath string
 			if err != nil {
 				return fmt.Errorf("failed to get function URL: %v", err)
 			}
-			fmt.Printf("Existing Function URL: %s\n", *getUrlConfig.FunctionUrl)
+			fmt.Printf("\nExisting Function URL: %s\n\n", *getUrlConfig.FunctionUrl)
 		} else {
 			return fmt.Errorf("failed to create function URL: %v", err)
 		}
 	} else {
-		fmt.Printf("New Function URL: %s\n", *createUrlConfig.FunctionUrl)
+		fmt.Printf("\nNew Function URL: %s\n\n", *createUrlConfig.FunctionUrl)
 	}
 
 	return nil
