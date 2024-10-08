@@ -14,13 +14,36 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/codeupify/upify/internal/config"
+	"github.com/joho/godotenv"
 )
 
 var excludedDirs = []string{".git", "node_modules", "venv", ".", ".upify"}
+
+func loadEnvVariables() (map[string]string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current working directory: %v", err)
+	}
+
+	envPath := filepath.Join(cwd, ".upify", ".env")
+
+	if _, err := os.Stat(envPath); os.IsNotExist(err) {
+		fmt.Println("No .upify/.env file found, not adding environment variables")
+		return make(map[string]string), nil
+	}
+
+	env, err := godotenv.Read(envPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read .env file: %v", err)
+	}
+
+	return env, nil
+}
 
 func copyFilesToTempDir(srcDir, destDir string) error {
 	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
@@ -251,7 +274,7 @@ func getOrCreateRole(svc *iam.IAM, roleName string) (string, error) {
 	return *result.Role.Arn, nil
 }
 
-func getOrCreateLambda(sess *session.Session, cfg *config.Config, zipPath string) error {
+func getOrCreateLambda(sess *session.Session, cfg *config.Config, zipPath string, envVariables map[string]string) error {
 	zipFile, err := os.Open(zipPath)
 	if err != nil {
 		return fmt.Errorf("failed to open zip file: %v", err)
@@ -265,6 +288,12 @@ func getOrCreateLambda(sess *session.Session, cfg *config.Config, zipPath string
 
 	lambdaSvc := lambda.New(sess)
 	iamSvc := iam.New(sess)
+
+	awsEnvVariables := make(map[string]*string)
+	for k, v := range envVariables {
+		awsEnvVariables[k] = aws.String(v)
+	}
+
 	_, err = lambdaSvc.GetFunction(&lambda.GetFunctionInput{
 		FunctionName: aws.String(cfg.Name),
 	})
@@ -284,11 +313,14 @@ func getOrCreateLambda(sess *session.Session, cfg *config.Config, zipPath string
 				Handler:      aws.String("lambda_handler.handler"),
 				Role:         aws.String(roleArn),
 				Runtime:      aws.String(cfg.AWSLambda.Runtime),
+				Environment: &lambda.Environment{
+					Variables: awsEnvVariables,
+				},
 			})
 			if err != nil {
 				return fmt.Errorf("failed to create function: %v", err)
 			}
-			fmt.Println("Successfully created and deployed Python app to AWS Lambda")
+			fmt.Println("Successfully created and deployed app to AWS Lambda")
 		} else {
 			return fmt.Errorf("failed to check if function exists: %v", err)
 		}
@@ -300,7 +332,34 @@ func getOrCreateLambda(sess *session.Session, cfg *config.Config, zipPath string
 		if err != nil {
 			return fmt.Errorf("failed to update function code: %v", err)
 		}
-		fmt.Println("Successfully updated Python app on AWS Lambda")
+
+		// Need to wait for function to be updated
+		waiterCfg := request.WithWaiterMaxAttempts(15)
+		waiterDelay := request.WithWaiterDelay(request.ConstantWaiterDelay(2 * time.Second))
+
+		err = lambdaSvc.WaitUntilFunctionUpdatedWithContext(
+			aws.BackgroundContext(),
+			&lambda.GetFunctionConfigurationInput{
+				FunctionName: aws.String(cfg.Name),
+			},
+			waiterCfg,
+			waiterDelay,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to wait for function update (make sure you have lambda:GetFunctionConfiguration permission): %v", err)
+		}
+
+		_, err = lambdaSvc.UpdateFunctionConfiguration(&lambda.UpdateFunctionConfigurationInput{
+			FunctionName: aws.String(cfg.Name),
+			Environment: &lambda.Environment{
+				Variables: awsEnvVariables,
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update function configuration: %v", err)
+		}
+
+		fmt.Println("Successfully updated app on AWS Lambda")
 	}
 
 	err = addPublicAccessPermission(lambdaSvc, cfg.Name)
@@ -408,7 +467,12 @@ func Deploy(cfg *config.Config) error {
 		return fmt.Errorf("failed to create session: %v", err)
 	}
 
-	err = getOrCreateLambda(sess, cfg, zipPath)
+	envVars, err := loadEnvVariables()
+	if err != nil {
+		return fmt.Errorf("failed to load environment variables: %v", err)
+	}
+
+	err = getOrCreateLambda(sess, cfg, zipPath, envVars)
 	if err != nil {
 		return fmt.Errorf("failed to get or create Lambda: %v", err)
 	}

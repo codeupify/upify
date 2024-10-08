@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const YOUR_OPENWEATHERMAP_API_KEY = '';
+const YOUR_OPENWEATHERMAP_API_KEY = process.env.YOUR_OPENWEATHERMAP_API_KEY;
 
 interface WeatherData {
     main: {
