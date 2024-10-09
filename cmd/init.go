@@ -3,7 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/codeupify/upify/internal/config"
@@ -63,6 +65,26 @@ func determineLanguage(entrypoint string) (config.Language, error) {
 	default:
 		return "", fmt.Errorf("unsupported file extension: %s", ext)
 	}
+}
+
+func detectPythonVersion() (string, error) {
+	cmd := exec.Command("python", "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	version := strings.TrimSpace(strings.TrimPrefix(string(output), "Python"))
+	return version, nil
+}
+
+func detectNodeVersion() (string, error) {
+	cmd := exec.Command("node", "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	version := strings.TrimSpace(strings.TrimPrefix(string(output), "v"))
+	return version, nil
 }
 
 func askFramework() (string, error) {
@@ -131,6 +153,21 @@ func askAppVar(message string, defaultValue string) (string, error) {
 	return appVar, nil
 }
 
+func askRuntimeVersion(detectedVersion string, runtime string) (string, error) {
+	message := fmt.Sprintf("Detected %s version: %s. Press Enter to confirm or type a different version:", runtime, detectedVersion)
+	versionPrompt := &survey.Input{
+		Message: message,
+		Default: detectedVersion,
+	}
+
+	var version string
+	if err := survey.AskOne(versionPrompt, &version); err != nil {
+		return "", err
+	}
+
+	return version, nil
+}
+
 func askProjectName() (string, error) {
 	projectNameQ := []*survey.Question{
 		{
@@ -177,6 +214,7 @@ var initCmd = &cobra.Command{
 		var (
 			selectedFramework config.Framework
 			selectedLanguage  config.Language
+			selectedRuntime   string
 			entrypoint        string
 			appVar            string
 			projectName       string
@@ -235,6 +273,31 @@ var initCmd = &cobra.Command{
 			}
 
 			selectedLanguage = language
+		}
+
+		if selectedLanguage == config.Python {
+			pythonVersion, err := detectPythonVersion()
+			if err != nil {
+				return err
+			}
+			ret, err := askRuntimeVersion(pythonVersion, "Python")
+			if err != nil {
+				return err
+			}
+
+			selectedRuntime = ret
+		} else if selectedLanguage == config.JavaScript || selectedLanguage == config.TypeScript {
+			nodeVersion, err := detectNodeVersion()
+			if err != nil {
+				return err
+			}
+
+			ret, err := askRuntimeVersion(nodeVersion, "Node")
+			if err != nil {
+				return err
+			}
+
+			selectedRuntime = ret
 		}
 
 		ret, err := askProjectName()

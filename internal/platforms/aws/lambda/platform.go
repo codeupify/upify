@@ -39,7 +39,7 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 	}
 
 	if cfg.Framework == config.Express {
-		content, err := templateFS.ReadFile("templates/express_lambda_handler_template.js")
+		content, err := templateFS.ReadFile("templates/express_lambda_handler.template")
 		if err != nil {
 			return fmt.Errorf("failed to read Express template file: %w", err)
 		}
@@ -49,7 +49,7 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 		handlerContent = strings.ReplaceAll(handlerContent, "{APP_VAR}", cfg.AppVar)
 		handlerPath = filepath.Join(".", "lambda_handler.js")
 	} else if cfg.Framework == config.Flask {
-		content, err := templateFS.ReadFile("templates/flask_lambda_handler_template.py")
+		content, err := templateFS.ReadFile("templates/flask_lambda_handler.template")
 		if err != nil {
 			return fmt.Errorf("failed to read Flask template file: %w", err)
 		}
@@ -61,7 +61,7 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 	} else {
 		switch cfg.Language {
 		case config.Python:
-			content, err := templateFS.ReadFile("templates/python_lambda_handler_template.py")
+			content, err := templateFS.ReadFile("templates/python_lambda_handler.template")
 			if err != nil {
 				return fmt.Errorf("failed to read Python template file: %w", err)
 			}
@@ -69,7 +69,7 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 			handlerContent = string(content)
 			handlerPath = filepath.Join(".", "lambda_handler.py")
 		case config.JavaScript, config.TypeScript:
-			content, err := templateFS.ReadFile("templates/node_lambda_handler_template.js")
+			content, err := templateFS.ReadFile("templates/node_lambda_handler.template")
 			if err != nil {
 				return fmt.Errorf("failed to read Node.js template file: %w", err)
 			}

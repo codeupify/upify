@@ -153,9 +153,9 @@ func installNodeRequirements(dir string, framework config.Framework, packageMana
 
 		var installCmd *exec.Cmd
 		if packageManager == config.Npm {
-			installCmd = exec.Command("npm", "install")
+			installCmd = exec.Command("npm", "install", "--production")
 		} else {
-			installCmd = exec.Command("yarn", "install")
+			installCmd = exec.Command("yarn", "install", "--production")
 		}
 
 		installCmd.Dir = dir
@@ -168,7 +168,7 @@ func installNodeRequirements(dir string, framework config.Framework, packageMana
 		if framework == config.Express {
 			var cmd *exec.Cmd
 			if packageManager == config.Npm {
-				cmd = exec.Command("npm", "install", "serverless-http", "--save")
+				cmd = exec.Command("npm", "install", "serverless-http")
 			} else {
 				cmd = exec.Command("yarn", "add", "serverless-http")
 			}
@@ -201,22 +201,6 @@ func installNodeRequirements(dir string, framework config.Framework, packageMana
 		}
 	} else {
 		return fmt.Errorf("package.json not found in directory: %s", dir)
-	}
-
-	if framework == config.Express {
-		var cmd *exec.Cmd
-		if packageManager == "npm" {
-			cmd = exec.Command("npm", "install", "serverless-http", "--save")
-		} else {
-			cmd = exec.Command("yarn", "add", "serverless-http")
-		}
-		cmd.Dir = dir
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to install serverless-http: %v", err)
-		}
-		fmt.Println("Installed serverless-http for Express framework")
 	}
 
 	return nil

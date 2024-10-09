@@ -1,0 +1,4 @@
+from {MODULE_NAME} import {APP_VAR}
+
+if __name__ == "__main__":
+    {APP_VAR}.run()

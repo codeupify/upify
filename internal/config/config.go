@@ -16,6 +16,7 @@ type Config struct {
 	Name           string             `yaml:"name"`
 	Framework      Framework          `yaml:"framework,omitempty"`
 	Language       Language           `yaml:"language"`
+	RuntimeVersion string             `yaml:"runtime_version"`
 	PackageManager PackageManager     `yaml:"package_manager"`
 	Entrypoint     string             `yaml:"entrypoint,omitempty"`
 	AppVar         string             `yaml:"app_var,omitempty"`
@@ -30,7 +31,10 @@ type AWSLambdaConfig struct {
 }
 
 type GCPCloudRunConfig struct {
-	// TODO
+	Region      string
+	ServiceName string
+	ProjectID   string
+	ImageURL    string
 }
 
 func GetConfigFilePath() string {
