@@ -13,7 +13,7 @@ import (
 //go:embed templates/*
 var templateFS embed.FS
 
-func AddConfig(cfg *config.Config, region, projectID, serviceName string) error {
+func AddConfig(cfg *config.Config, region string, projectID string) error {
 	cfg.GCPCloudRun = &config.GCPCloudRunConfig{
 		Region:    region,
 		ProjectID: projectID,
@@ -21,7 +21,7 @@ func AddConfig(cfg *config.Config, region, projectID, serviceName string) error 
 	return nil
 }
 
-func GenerateDockerfile(cfg *config.Config) error {
+func GenerateFiles(cfg *config.Config) error {
 	if cfg.Framework != "" && cfg.Entrypoint == "" {
 		return fmt.Errorf("framework or entrypoint must be specified in the configuration")
 	}
@@ -31,13 +31,14 @@ func GenerateDockerfile(cfg *config.Config) error {
 	}
 
 	var dockerfileContent string
-	dockerfilePath := filepath.Join(".upify", "Dockerfile")
 
 	// Choose a base Dockerfile template based on the language/framework
 	switch cfg.Language {
 	case config.Python:
+		content, err := templateFS.ReadFile("templates/python_flask_dockerfile.template")
+
 		if cfg.Framework == config.Flask {
-			content, err := templateFS.ReadFile("templates/python_flask_dockerfile.template")
+
 			if err != nil {
 				return fmt.Errorf("failed to read Python Flask Dockerfile template: %w", err)
 			}
@@ -67,12 +68,10 @@ func GenerateDockerfile(cfg *config.Config) error {
 		return fmt.Errorf("unsupported language: %s", cfg.Language)
 	}
 
-	// Replace placeholders if necessary
 	dockerfileContent = strings.ReplaceAll(dockerfileContent, "{PORT}", fmt.Sprintf("%d", cfg.CloudRun.Port))
 	dockerfileContent = strings.ReplaceAll(dockerfileContent, "{ENTRYPOINT}", cfg.Entrypoint)
 
-	// Save Dockerfile
-	fmt.Println("Saving Dockerfile to:", dockerfilePath)
+	dockerfilePath := filepath.Join(".upify", "Dockerfile.cloudrun")
 	if err := os.WriteFile(dockerfilePath, []byte(dockerfileContent), 0644); err != nil {
 		return fmt.Errorf("failed to write Dockerfile: %w", err)
 	}

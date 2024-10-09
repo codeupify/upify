@@ -6,6 +6,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/codeupify/upify/internal/config"
 	"github.com/codeupify/upify/internal/platforms/aws/lambda"
+	"github.com/codeupify/upify/internal/platforms/gcp/cloudrun"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +37,9 @@ var awsLambdaCmd = &cobra.Command{
 var awsRegion string
 var awsRuntime string
 
+var gcpRegion string
+var gcpProjectId string
+
 var gcpCloudRunCmd = &cobra.Command{
 	Use:   "gcp-cloudrun",
 	Short: "Add GCP Cloud Run configuration",
@@ -52,6 +56,8 @@ func init() {
 	awsLambdaCmd.Flags().StringVar(&awsRuntime, "runtime", "", "Lambda runtime")
 
 	platformAddCmd.AddCommand(gcpCloudRunCmd)
+	awsLambdaCmd.Flags().StringVar(&gcpRegion, "region", "", "GCP region")
+	awsLambdaCmd.Flags().StringVar(&gcpProjectId, "project-id", "", "GCP project ID")
 }
 
 func getAWSRuntimes(language config.Language) []string {
@@ -114,7 +120,34 @@ func addAWSLambda(cmd *cobra.Command, args []string) error {
 }
 
 func addGCPCloudRun(cmd *cobra.Command, args []string) error {
-	fmt.Println("GCP Cloud Run configuration not yet implemented.")
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if gcpRegion == "" {
+		regionQ := &survey.Input{
+			Message: "Enter GCP region:",
+			Default: "us-central1",
+		}
+		if err := survey.AskOne(regionQ, &gcpRegion); err != nil {
+			return err
+		}
+	}
+
+	if gcpProjectId == "" {
+		projectIdQ := &survey.Input{
+			Message: "Enter GCP project ID:",
+		}
+		if err := survey.AskOne(projectIdQ, &gcpProjectId); err != nil {
+			return err
+		}
+	}
+
+	if err := cloudrun.AddConfig(cfg, gcpRegion, gcpProjectId); err != nil {
+		return err
+	}
+
 	return nil
 }
 
