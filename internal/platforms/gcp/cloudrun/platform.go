@@ -16,7 +16,7 @@ var templateFS embed.FS
 func AddConfig(cfg *config.Config, region string, projectID string) error {
 	cfg.GCPCloudRun = &config.GCPCloudRunConfig{
 		Region:    region,
-		ProjectID: projectID,
+		ProjectId: projectID,
 	}
 	return nil
 }
@@ -68,7 +68,7 @@ func GenerateFiles(cfg *config.Config) error {
 		return fmt.Errorf("unsupported language: %s", cfg.Language)
 	}
 
-	dockerfileContent = strings.ReplaceAll(dockerfileContent, "{PORT}", fmt.Sprintf("%d", cfg.CloudRun.Port))
+	dockerfileContent = strings.ReplaceAll(dockerfileContent, "{PORT}", fmt.Sprintf("%d", 8080))
 	dockerfileContent = strings.ReplaceAll(dockerfileContent, "{ENTRYPOINT}", cfg.Entrypoint)
 
 	dockerfilePath := filepath.Join(".upify", "Dockerfile.cloudrun")

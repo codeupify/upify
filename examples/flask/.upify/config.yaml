@@ -8,3 +8,6 @@ aws-lambda:
   region: us-east-1
   role_name: flask-role
   runtime: python3.12
+gcp-cloudrun:
+  region: us-central1
+  project_id: upify-438115

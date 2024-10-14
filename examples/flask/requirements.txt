@@ -1,1 +1,2 @@
-flask
+Flask==3.0.3
+functions-framework==3.*

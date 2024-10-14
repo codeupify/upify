@@ -28,13 +28,16 @@ type AWSLambdaConfig struct {
 	Region   string `yaml:"region"`
 	RoleName string `yaml:"role_name"`
 	Runtime  string `yaml:"runtime"`
+	Memory   int    `yaml:"memory,omitempty"`
 }
 
 type GCPCloudRunConfig struct {
-	Region      string
-	ServiceName string
-	ProjectID   string
-	ImageURL    string
+	Region      string `yaml:"region"`
+	ServiceName string `yaml:"service_name"`
+	ProjectId   string `yaml:"project_id"`
+	ImageURL    string `yaml:"image_url"`
+	Runtime     string `yaml:"runtime"`
+	Memory      int    `yaml:"memory,omitempty"`
 }
 
 func GetConfigFilePath() string {

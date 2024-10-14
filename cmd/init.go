@@ -214,10 +214,10 @@ var initCmd = &cobra.Command{
 		var (
 			selectedFramework config.Framework
 			selectedLanguage  config.Language
-			selectedRuntime   string
-			entrypoint        string
-			appVar            string
-			projectName       string
+			// selectedRuntime   string
+			entrypoint  string
+			appVar      string
+			projectName string
 		)
 
 		framework, err := askFramework()
@@ -275,30 +275,30 @@ var initCmd = &cobra.Command{
 			selectedLanguage = language
 		}
 
-		if selectedLanguage == config.Python {
-			pythonVersion, err := detectPythonVersion()
-			if err != nil {
-				return err
-			}
-			ret, err := askRuntimeVersion(pythonVersion, "Python")
-			if err != nil {
-				return err
-			}
+		// if selectedLanguage == config.Python {
+		// 	pythonVersion, err := detectPythonVersion()
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	ret, err := askRuntimeVersion(pythonVersion, "Python")
+		// 	if err != nil {
+		// 		return err
+		// 	}
 
-			selectedRuntime = ret
-		} else if selectedLanguage == config.JavaScript || selectedLanguage == config.TypeScript {
-			nodeVersion, err := detectNodeVersion()
-			if err != nil {
-				return err
-			}
+		// 	selectedRuntime = ret
+		// } else if selectedLanguage == config.JavaScript || selectedLanguage == config.TypeScript {
+		// 	nodeVersion, err := detectNodeVersion()
+		// 	if err != nil {
+		// 		return err
+		// 	}
 
-			ret, err := askRuntimeVersion(nodeVersion, "Node")
-			if err != nil {
-				return err
-			}
+		// 	ret, err := askRuntimeVersion(nodeVersion, "Node")
+		// 	if err != nil {
+		// 		return err
+		// 	}
 
-			selectedRuntime = ret
-		}
+		// 	selectedRuntime = ret
+		// }
 
 		ret, err := askProjectName()
 		if err != nil {

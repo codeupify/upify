@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/codeupify/upify/internal/config"
-	"github.com/codeupify/upify/internal/platforms/aws/lambda"
+	"github.com/codeupify/upify/internal/platforms/gcp/cloudrun"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +12,7 @@ var deployCmd = &cobra.Command{
 	Use:   "deploy [platform]",
 	Short: "Deploy the application to a specified platform",
 	Long: `Deploy the application to a specified platform.
-Currently supported platforms: aws-lambda
+Currently supported platforms: aws-lambda, gcp-cloudrun
 
 Example:
   upify deploy aws-lambda`,
@@ -39,12 +39,17 @@ func deploy(platform string, cfg *config.Config) error {
 			return fmt.Errorf("aws-lambda configuration is not set up. Please run 'upify platform add aws-lambda' first")
 		}
 		fmt.Println("Deploying to AWS Lambda...")
-		if err := lambda.Deploy(cfg); err != nil {
-			return fmt.Errorf("failed to deploy to AWS Lambda: %w", err)
+		// if err := lambda.Deploy(cfg); err != nil {
+		// 	return fmt.Errorf("failed to deploy to AWS Lambda: %w", err)
+		// }
+	case "gcp-cloudrun":
+		if cfg.GCPCloudRun == nil {
+			return fmt.Errorf("gcp-cloudrun configuration is not set up. Please run 'upify platform add gcp-cloudrun' first")
 		}
-	// case "gcp-cloudrun":
-	// 	// TODO: Implement GCP Cloud Run deployment
-	// 	return fmt.Errorf("deployment to GCP Cloud Run is not yet implemented")
+		fmt.Println("Deploying to GCP Cloud Run...")
+		if err := cloudrun.Deploy(cfg); err != nil {
+			return fmt.Errorf("failed to deploy to GCP Cloud Run: %w", err)
+		}
 	default:
 		return fmt.Errorf("unsupported platform: %s", platform)
 	}

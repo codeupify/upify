@@ -56,8 +56,8 @@ func init() {
 	awsLambdaCmd.Flags().StringVar(&awsRuntime, "runtime", "", "Lambda runtime")
 
 	platformAddCmd.AddCommand(gcpCloudRunCmd)
-	awsLambdaCmd.Flags().StringVar(&gcpRegion, "region", "", "GCP region")
-	awsLambdaCmd.Flags().StringVar(&gcpProjectId, "project-id", "", "GCP project ID")
+	gcpCloudRunCmd.Flags().StringVar(&gcpRegion, "region", "", "GCP region")
+	gcpCloudRunCmd.Flags().StringVar(&gcpProjectId, "project-id", "", "GCP project ID")
 }
 
 func getAWSRuntimes(language config.Language) []string {
