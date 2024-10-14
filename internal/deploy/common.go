@@ -28,3 +28,17 @@ func LoadEnvVariables() (map[string]string, error) {
 
 	return env, nil
 }
+
+func VerifyWrapperExists() error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %v", err)
+	}
+
+	wrapperPath := filepath.Join(cwd, "upify_wrapper.py")
+	if _, err := os.Stat(wrapperPath); os.IsNotExist(err) {
+		return fmt.Errorf("upify_wrapper.py not found in current working directory")
+	}
+
+	return nil
+}

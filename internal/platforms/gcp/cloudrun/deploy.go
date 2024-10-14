@@ -19,10 +19,14 @@ import (
 )
 
 func Deploy(cfg *config.Config) error {
-	// TODO
-	// if err := validateAWSLambdaConfig(cfg); err != nil {
-	// 	return err
-	// }
+	if err := validateGCPCloudRunConfig(cfg); err != nil {
+		return err
+	}
+
+	err := deploy.VerifyWrapperExists()
+	if err != nil {
+		return err
+	}
 
 	envVars, err := deploy.LoadEnvVariables()
 	if err != nil {
@@ -75,7 +79,6 @@ func Deploy(cfg *config.Config) error {
 }
 
 func adjustEntryPointFile(cfg *config.Config, tempDirPath string) error {
-
 	if cfg.Language == config.Python {
 		mainPath := filepath.Join(tempDirPath, "main.py")
 		_mainPath := filepath.Join(tempDirPath, "_main.py")
@@ -87,27 +90,32 @@ func adjustEntryPointFile(cfg *config.Config, tempDirPath string) error {
 			}
 		}
 
-		wrapperPath := filepath.Join(tempDirPath, "upify_wrapper.py")
-		if _, err := os.Stat(wrapperPath); err == nil {
-			content, err := os.ReadFile(wrapperPath)
-			if err != nil {
-				return fmt.Errorf("failed to read upify_wrapper.py: %v", err)
-			}
+		wrapperFiles := []string{"upify_wrapper.py", "request_wrapper.py"}
 
-			reImportMain := regexp.MustCompile(`(?m)^\s*import\s+main\s*$`)
-			updatedContent := reImportMain.ReplaceAllString(string(content), "import _main")
+		for _, wrapperFile := range wrapperFiles {
+			wrapperPath := filepath.Join(tempDirPath, wrapperFile)
+			if _, err := os.Stat(wrapperPath); err == nil {
+				content, err := os.ReadFile(wrapperPath)
+				if err != nil {
+					return fmt.Errorf("failed to read %s: %v", wrapperFile, err)
+				}
 
-			reFromMain := regexp.MustCompile(`(?m)^\s*from\s+main\s+import\s+`)
-			updatedContent = reFromMain.ReplaceAllString(updatedContent, "from _main import ")
+				reImportMain := regexp.MustCompile(`(?m)^\s*import\s+main\s*$`)
+				updatedContent := reImportMain.ReplaceAllString(string(content), "import _main")
 
-			err = os.WriteFile(wrapperPath, []byte(updatedContent), 0644)
-			if err != nil {
-				return fmt.Errorf("failed to update upify_wrapper.py: %v", err)
+				reFromMain := regexp.MustCompile(`(?m)^\s*from\s+main\s+import\s+`)
+				updatedContent = reFromMain.ReplaceAllString(updatedContent, "from _main import ")
+
+				err = os.WriteFile(wrapperPath, []byte(updatedContent), 0644)
+				if err != nil {
+					return fmt.Errorf("failed to update %s: %v", wrapperFile, err)
+				}
 			}
 		}
 
+		upifyWrapperPath := filepath.Join(tempDirPath, "upify_wrapper.py")
 		newMainPath := filepath.Join(tempDirPath, "main.py")
-		err := os.Rename(wrapperPath, newMainPath)
+		err := os.Rename(upifyWrapperPath, newMainPath)
 		if err != nil {
 			return fmt.Errorf("failed to rename upify_wrapper.py to main.py: %v", err)
 		}
@@ -325,5 +333,18 @@ func createFunction(cfg *config.Config, ctx context.Context, bucketName string, 
 		fmt.Printf("\nExisting Function URL: %s\n\n", service.Status.Url)
 	}
 
+	return nil
+}
+
+func validateGCPCloudRunConfig(cfg *config.Config) error {
+	if cfg.GCPCloudRun.ProjectId == "" {
+		return fmt.Errorf("project id must be set")
+	}
+	if cfg.GCPCloudRun.Region == "" {
+		return fmt.Errorf("region must be set")
+	}
+	if cfg.GCPCloudRun.Runtime == "" {
+		return fmt.Errorf("runtime must be set")
+	}
 	return nil
 }

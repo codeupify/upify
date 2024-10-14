@@ -5,3 +5,7 @@ aws-lambda:
   region: us-east-1
   role_name: python-role
   runtime: python3.10
+gcp-cloudrun:
+  region: us-central1
+  project_id: upify-438115
+  runtime: python312
