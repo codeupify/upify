@@ -10,6 +10,8 @@ import (
 
 	"github.com/codeupify/upify/internal/config"
 	"github.com/codeupify/upify/internal/deploy"
+	"google.golang.org/api/iterator"
+	"google.golang.org/api/run/v1"
 
 	functions "cloud.google.com/go/functions/apiv2"
 	functionspb "cloud.google.com/go/functions/apiv2/functionspb"
@@ -26,7 +28,7 @@ func Deploy(cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %v", err)
 	}
-	// defer os.RemoveAll(tempDir)
+	defer os.RemoveAll(tempDir)
 
 	err = deploy.CopyFilesToTempDir(".", tempDir)
 	if err != nil {
@@ -46,29 +48,21 @@ func Deploy(cfg *config.Config) error {
 
 	ctx := context.Background()
 
-	bucketName, objectName, err := uploadToStorage(cfg, ctx, tempDir)
+	bucketName := getBucketName(cfg)
+
+	bucketName, objectName, err := uploadToStorage(ctx, cfg.GCPCloudRun.ProjectId, bucketName, zipPath)
 	if err != nil {
 		return fmt.Errorf("failed to upload files to storage: %v", err)
 	}
 
-	fmt.Printf("\n%s/%s\n", bucketName, objectName)
+	err = createFunction(cfg, ctx, bucketName, objectName)
+	if err != nil {
+		return fmt.Errorf("failed to create function: %v", err)
+	}
 
-	// err = createFunction(cfg, ctx, bucketName, objectName)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to create function: %v", err)
-	// }
+	deleteBucket(ctx, bucketName)
 
 	return nil
-}
-
-func main() {
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		fmt.Errorf("failed to load config: %v", err)
-	}
-	if err := Deploy(cfg); err != nil {
-		fmt.Errorf("failed to deploy: %v", err)
-	}
 }
 
 func adjustEntryPointFile(cfg *config.Config, tempDirPath string) error {
@@ -113,7 +107,45 @@ func adjustEntryPointFile(cfg *config.Config, tempDirPath string) error {
 	return nil
 }
 
-func uploadToStorage(cfg *config.Config, ctx context.Context, zipPath string) (string, string, error) {
+func getBucketName(cfg *config.Config) string {
+	return fmt.Sprintf("upify-%s-%s-source", cfg.GCPCloudRun.ProjectId, cfg.Name)
+}
+
+func deleteBucket(ctx context.Context, bucketName string) error {
+	storageClient, err := storage.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create storage client: %w", err)
+	}
+	defer storageClient.Close()
+
+	bucket := storageClient.Bucket(bucketName)
+
+	it := bucket.Objects(ctx, nil)
+	for {
+		attrs, err := it.Next()
+		if err == storage.ErrBucketNotExist {
+			return fmt.Errorf("bucket %q not found", bucketName)
+		}
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("error iterating through objects: %v", err)
+		}
+		if err := bucket.Object(attrs.Name).Delete(ctx); err != nil {
+			return fmt.Errorf("error deleting object %q: %v", attrs.Name, err)
+		}
+	}
+
+	if err := bucket.Delete(ctx); err != nil {
+		return fmt.Errorf("error deleting bucket %q: %v", bucketName, err)
+	}
+
+	fmt.Printf("Bucket %q successfully deleted\n", bucketName)
+	return nil
+}
+
+func uploadToStorage(ctx context.Context, projectId string, bucketName string, zipPath string) (string, string, error) {
 
 	storageClient, err := storage.NewClient(ctx)
 	if err != nil {
@@ -121,10 +153,20 @@ func uploadToStorage(cfg *config.Config, ctx context.Context, zipPath string) (s
 	}
 	defer storageClient.Close()
 
-	bucketName := fmt.Sprintf("%s-%s-source", cfg.GCPCloudRun.ProjectId, cfg.Name)
 	bucket := storageClient.Bucket(bucketName)
 
-	if err := bucket.Create(ctx, cfg.GCPCloudRun.ProjectId, nil); err != nil {
+	// Delete any existing buckets
+	_, err = bucket.Attrs(ctx)
+	if err == nil {
+		fmt.Printf("Bucket %q already exists, attempting to delete\n", bucketName)
+		if err := deleteBucket(ctx, bucketName); err != nil {
+			return "", "", fmt.Errorf("failed to delete existing bucket contents: %w", err)
+		}
+	} else if err != storage.ErrBucketNotExist {
+		return "", "", fmt.Errorf("error checking bucket existence: %w", err)
+	}
+
+	if err := bucket.Create(ctx, projectId, nil); err != nil {
 		return bucketName, "", fmt.Errorf("failed to create bucket: %w", err)
 	}
 
@@ -144,13 +186,39 @@ func uploadToStorage(cfg *config.Config, ctx context.Context, zipPath string) (s
 		return bucketName, objectName, fmt.Errorf("failed to finalize GCS upload: %w", err)
 	}
 
+	fmt.Printf("Uploaded zip to bucket %q, object %q\n", bucketName, objectName)
 	return bucketName, objectName, nil
 }
 
+func setIAMPolicyForUnauthenticated(runService *run.APIService, serviceName string) error {
+	policy, err := runService.Projects.Locations.Services.GetIamPolicy(serviceName).Do()
+	if err != nil {
+		return fmt.Errorf("failed to get IAM policy: %v", err)
+	}
+
+	policy.Bindings = append(policy.Bindings, &run.Binding{
+		Role:    "roles/run.invoker",
+		Members: []string{"allUsers"},
+	})
+
+	_, err = runService.Projects.Locations.Services.SetIamPolicy(serviceName, &run.SetIamPolicyRequest{
+		Policy: policy,
+	}).Do()
+	if err != nil {
+		return fmt.Errorf("failed to set IAM policy: %v", err)
+	}
+
+	fmt.Println("Function set to allow unauthenticated invocations")
+	return nil
+}
+
 func createFunction(cfg *config.Config, ctx context.Context, bucketName string, objectName string) error {
+
+	fmt.Printf("Creating function %q in project %q\n", cfg.Name, cfg.GCPCloudRun.ProjectId)
+
 	client, err := functions.NewFunctionClient(ctx)
 	if err != nil {
-		fmt.Errorf("Failed to create client: %v", err)
+		return fmt.Errorf("failed to create client: %v", err)
 	}
 	defer client.Close()
 
@@ -162,8 +230,10 @@ func createFunction(cfg *config.Config, ctx context.Context, bucketName string, 
 		serviceConfig.AvailableMemory = fmt.Sprintf("%dM", cfg.GCPCloudRun.Memory)
 	}
 
+	functionName := fmt.Sprintf("projects/%s/locations/%s/functions/%s", cfg.GCPCloudRun.ProjectId, cfg.GCPCloudRun.Region, cfg.Name)
+
 	function := &functionspb.Function{
-		Name: fmt.Sprintf("projects/%s/locations/%s/functions/%s", cfg.GCPCloudRun.ProjectId, cfg.GCPCloudRun.Region, cfg.Name),
+		Name: functionName,
 		BuildConfig: &functionspb.BuildConfig{
 			Runtime:    cfg.GCPCloudRun.Runtime,
 			EntryPoint: "handler",
@@ -181,23 +251,73 @@ func createFunction(cfg *config.Config, ctx context.Context, bucketName string, 
 		},
 	}
 
-	req := &functionspb.CreateFunctionRequest{
-		Parent:     fmt.Sprintf("projects/%s/locations/%s", cfg.GCPCloudRun.ProjectId, cfg.GCPCloudRun.Region),
-		Function:   function,
-		FunctionId: cfg.Name,
-	}
+	var resp *functionspb.Function
+	var isNewFunction bool
 
-	op, err := client.CreateFunction(ctx, req)
+	existingFunc, err := client.GetFunction(ctx, &functionspb.GetFunctionRequest{Name: functionName})
 	if err != nil {
-		fmt.Errorf("Failed to create function: %v", err)
+
+		req := &functionspb.CreateFunctionRequest{
+			Parent:     fmt.Sprintf("projects/%s/locations/%s", cfg.GCPCloudRun.ProjectId, cfg.GCPCloudRun.Region),
+			Function:   function,
+			FunctionId: cfg.Name,
+		}
+
+		op, err := client.CreateFunction(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to create function: %v", err)
+		}
+
+		resp, err = op.Wait(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for operation: %w", err)
+		}
+		isNewFunction = true
+	} else {
+		fmt.Print("Function already exists, updating...")
+
+		function.BuildConfig.Source = existingFunc.BuildConfig.Source
+		req := &functionspb.UpdateFunctionRequest{
+			Function: function,
+		}
+		op, err := client.UpdateFunction(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to update function: %v", err)
+		}
+
+		resp, err = op.Wait(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for operation: %w", err)
+		}
+		isNewFunction = false
 	}
 
-	resp, err := op.Wait(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to wait for operation: %w", err)
+		return fmt.Errorf("failed to create/update function: %v", err)
 	}
 
+	serviceName := fmt.Sprintf("projects/%s/locations/%s/services/%s", cfg.GCPCloudRun.ProjectId, cfg.GCPCloudRun.Region, cfg.Name)
+	runService, err := run.NewService(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create Cloud Run client: %v", err)
+	}
+
+	err = setIAMPolicyForUnauthenticated(runService, serviceName)
+	if err != nil {
+		return fmt.Errorf("failed to set IAM policy: %v", err)
+	}
+
+	service, err := runService.Projects.Locations.Services.Get(serviceName).Do()
+	if err != nil {
+		return fmt.Errorf("failed to get Cloud Run service details: %v", err)
+	}
 	fmt.Printf("Function deployed successfully: %s\n", resp.Name)
+
+	if isNewFunction {
+		fmt.Printf("\nNew Function URL: %s\n\n", service.Status.Url)
+	} else {
+		fmt.Printf("\nExisting Function URL: %s\n\n", service.Status.Url)
+	}
 
 	return nil
 }
