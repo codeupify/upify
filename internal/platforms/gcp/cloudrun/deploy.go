@@ -24,6 +24,13 @@ func Deploy(cfg *config.Config) error {
 	// 	return err
 	// }
 
+	envVars, err := deploy.LoadEnvVariables()
+	if err != nil {
+		return fmt.Errorf("failed to load environment variables: %v", err)
+	}
+
+	envVars["UPIFY_DEPLOY_PLATFORM"] = "gcp-cloudrun"
+
 	tempDir, err := os.MkdirTemp("", "cloudrun_deployment_")
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %v", err)
@@ -55,7 +62,9 @@ func Deploy(cfg *config.Config) error {
 		return fmt.Errorf("failed to upload files to storage: %v", err)
 	}
 
-	err = createFunction(cfg, ctx, bucketName, objectName)
+	fmt.Print("Created bucket " + bucketName + " and object " + objectName + " in project " + cfg.GCPCloudRun.ProjectId + "\n")
+
+	err = createFunction(cfg, ctx, bucketName, objectName, envVars)
 	if err != nil {
 		return fmt.Errorf("failed to create function: %v", err)
 	}
@@ -212,7 +221,7 @@ func setIAMPolicyForUnauthenticated(runService *run.APIService, serviceName stri
 	return nil
 }
 
-func createFunction(cfg *config.Config, ctx context.Context, bucketName string, objectName string) error {
+func createFunction(cfg *config.Config, ctx context.Context, bucketName string, objectName string, envVariables map[string]string) error {
 
 	fmt.Printf("Creating function %q in project %q\n", cfg.Name, cfg.GCPCloudRun.ProjectId)
 
@@ -223,7 +232,8 @@ func createFunction(cfg *config.Config, ctx context.Context, bucketName string, 
 	defer client.Close()
 
 	serviceConfig := &functionspb.ServiceConfig{
-		TimeoutSeconds: 60,
+		TimeoutSeconds:       60,
+		EnvironmentVariables: envVariables,
 	}
 
 	if cfg.GCPCloudRun.Memory != 0 {
@@ -246,15 +256,13 @@ func createFunction(cfg *config.Config, ctx context.Context, bucketName string, 
 				},
 			},
 		},
-		ServiceConfig: &functionspb.ServiceConfig{
-			TimeoutSeconds: 60,
-		},
+		ServiceConfig: serviceConfig,
 	}
 
 	var resp *functionspb.Function
 	var isNewFunction bool
 
-	existingFunc, err := client.GetFunction(ctx, &functionspb.GetFunctionRequest{Name: functionName})
+	_, err = client.GetFunction(ctx, &functionspb.GetFunctionRequest{Name: functionName})
 	if err != nil {
 
 		req := &functionspb.CreateFunctionRequest{
@@ -275,8 +283,6 @@ func createFunction(cfg *config.Config, ctx context.Context, bucketName string, 
 		isNewFunction = true
 	} else {
 		fmt.Print("Function already exists, updating...")
-
-		function.BuildConfig.Source = existingFunc.BuildConfig.Source
 		req := &functionspb.UpdateFunctionRequest{
 			Function: function,
 		}
