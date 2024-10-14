@@ -10,24 +10,63 @@ import (
 )
 
 type PackageJSON struct {
-	Scripts map[string]string `json:"scripts"`
+	Scripts      map[string]string `json:"scripts"`
+	Dependencies map[string]string `json:"dependencies"`
+	Other        map[string]interface{}
 }
 
-func parsePackageJSON(path string) (*PackageJSON, error) {
+func ParsePackageJSON(path string) (*PackageJSON, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var pkg PackageJSON
-	if err := json.Unmarshal(data, &pkg); err != nil {
+	var temp map[string]interface{}
+	if err := json.Unmarshal(data, &temp); err != nil {
 		return nil, err
 	}
 
-	return &pkg, nil
+	pkg := &PackageJSON{
+		Scripts:      make(map[string]string),
+		Dependencies: make(map[string]string),
+		Other:        make(map[string]interface{}),
+	}
+
+	if scripts, ok := temp["scripts"].(map[string]interface{}); ok {
+		for k, v := range scripts {
+			pkg.Scripts[k] = fmt.Sprint(v)
+		}
+	}
+
+	if deps, ok := temp["dependencies"].(map[string]interface{}); ok {
+		for k, v := range deps {
+			pkg.Dependencies[k] = fmt.Sprint(v)
+		}
+	}
+
+	for k, v := range temp {
+		if k != "scripts" && k != "dependencies" {
+			pkg.Other[k] = v
+		}
+	}
+
+	return pkg, nil
 }
 
-func installPackages(dir string, pkg *PackageJSON, packageManager config.PackageManager) error {
+func WritePackageJSON(path string, pkg *PackageJSON) error {
+	temp := pkg.Other
+	temp["scripts"] = pkg.Scripts
+	temp["dependencies"] = pkg.Dependencies
+
+	data, err := json.MarshalIndent(temp, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0644)
+}
+
+func InstallPackages(dir string, pkg *PackageJSON, packageManager config.PackageManager) error {
 	var installCmd *exec.Cmd
 	if packageManager == config.Npm {
 		installCmd = exec.Command("npm", "install", "--production")
@@ -64,7 +103,7 @@ func installPackages(dir string, pkg *PackageJSON, packageManager config.Package
 	return nil
 }
 
-func build(dir string, pkg *PackageJSON, packageManager config.PackageManager) error {
+func Build(dir string, pkg *PackageJSON, packageManager config.PackageManager) error {
 	if _, hasBuild := pkg.Scripts["build"]; hasBuild {
 		var buildCmd *exec.Cmd
 		if packageManager == config.Npm {
@@ -85,4 +124,18 @@ func build(dir string, pkg *PackageJSON, packageManager config.PackageManager) e
 	}
 
 	return nil
+}
+
+func AddPackage(pkg *PackageJSON, packageName string, version string) {
+	if pkg.Dependencies == nil {
+		pkg.Dependencies = make(map[string]string)
+	}
+	pkg.Dependencies[packageName] = version
+}
+
+func AddScript(pkg *PackageJSON, scriptName string, scriptValue string) {
+	if pkg.Scripts == nil {
+		pkg.Scripts = make(map[string]string)
+	}
+	pkg.Scripts[scriptName] = scriptValue
 }

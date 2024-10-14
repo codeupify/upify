@@ -23,7 +23,7 @@ func Deploy(cfg *config.Config) error {
 		return err
 	}
 
-	err := deploy.VerifyWrapperExists()
+	err := deploy.VerifyWrapperExists(cfg.Language)
 	if err != nil {
 		return err
 	}
@@ -49,6 +49,13 @@ func Deploy(cfg *config.Config) error {
 	err = adjustEntryPointFile(cfg, tempDir)
 	if err != nil {
 		return fmt.Errorf("failed to adjust entrypoint file: %v", err)
+	}
+
+	if cfg.Language == config.JavaScript || cfg.Language == config.TypeScript {
+		err = updatePackageJson(cfg, tempDir)
+		if err != nil {
+			return fmt.Errorf("failed to update package.json: %v", err)
+		}
 	}
 
 	zipPath := filepath.Join(tempDir, "source.zip")
@@ -78,47 +85,116 @@ func Deploy(cfg *config.Config) error {
 	return nil
 }
 
+func updatePackageJson(cfg *config.Config, tempDirPath string) error {
+	pkgJson, err := deploy.ParsePackageJSON(filepath.Join(tempDirPath, "package.json"))
+	if err != nil {
+		return fmt.Errorf("failed to parse package.json: %v", err)
+	}
+
+	deploy.AddPackage(pkgJson, "@google-cloud/functions-framework", "^3.0.0")
+	if pkgJson.Scripts != nil && pkgJson.Scripts["build"] != "" {
+		buildCommand := "npm run build"
+		if cfg.PackageManager == config.Yarn {
+			buildCommand = "yarn build"
+		}
+
+		deploy.AddScript(pkgJson, "gcp-build", buildCommand)
+	}
+
+	return deploy.WritePackageJSON(filepath.Join(tempDirPath, "package.json"), pkgJson)
+}
+
 func adjustEntryPointFile(cfg *config.Config, tempDirPath string) error {
-	if cfg.Language == config.Python {
-		mainPath := filepath.Join(tempDirPath, "main.py")
-		_mainPath := filepath.Join(tempDirPath, "_main.py")
+	switch cfg.Language {
+	case config.Python:
+		return adjustPythonEntryPointFile(tempDirPath)
+	case config.JavaScript, config.TypeScript:
+		return adjustNodeEntryPointFile(tempDirPath)
+	default:
+		return fmt.Errorf("unsupported language: %v", cfg.Language)
+	}
+}
 
-		if _, err := os.Stat(mainPath); err == nil {
-			err := os.Rename(mainPath, _mainPath)
-			if err != nil {
-				return fmt.Errorf("failed to rename main.py to _main.py: %v", err)
-			}
-		}
+func adjustPythonEntryPointFile(tempDirPath string) error {
+	mainPath := filepath.Join(tempDirPath, "main.py")
+	_mainPath := filepath.Join(tempDirPath, "_main.py")
 
-		wrapperFiles := []string{"upify_wrapper.py", "request_wrapper.py"}
-
-		for _, wrapperFile := range wrapperFiles {
-			wrapperPath := filepath.Join(tempDirPath, wrapperFile)
-			if _, err := os.Stat(wrapperPath); err == nil {
-				content, err := os.ReadFile(wrapperPath)
-				if err != nil {
-					return fmt.Errorf("failed to read %s: %v", wrapperFile, err)
-				}
-
-				reImportMain := regexp.MustCompile(`(?m)^\s*import\s+main\s*$`)
-				updatedContent := reImportMain.ReplaceAllString(string(content), "import _main")
-
-				reFromMain := regexp.MustCompile(`(?m)^\s*from\s+main\s+import\s+`)
-				updatedContent = reFromMain.ReplaceAllString(updatedContent, "from _main import ")
-
-				err = os.WriteFile(wrapperPath, []byte(updatedContent), 0644)
-				if err != nil {
-					return fmt.Errorf("failed to update %s: %v", wrapperFile, err)
-				}
-			}
-		}
-
-		upifyWrapperPath := filepath.Join(tempDirPath, "upify_wrapper.py")
-		newMainPath := filepath.Join(tempDirPath, "main.py")
-		err := os.Rename(upifyWrapperPath, newMainPath)
+	if _, err := os.Stat(mainPath); err == nil {
+		err := os.Rename(mainPath, _mainPath)
 		if err != nil {
-			return fmt.Errorf("failed to rename upify_wrapper.py to main.py: %v", err)
+			return fmt.Errorf("failed to rename main.py to _main.py: %v", err)
 		}
+	}
+
+	wrapperFiles := []string{"upify_wrapper.py", "request_wrapper.py"}
+
+	for _, wrapperFile := range wrapperFiles {
+		wrapperPath := filepath.Join(tempDirPath, wrapperFile)
+		if _, err := os.Stat(wrapperPath); err == nil {
+			content, err := os.ReadFile(wrapperPath)
+			if err != nil {
+				return fmt.Errorf("failed to read %s: %v", wrapperFile, err)
+			}
+
+			reImportMain := regexp.MustCompile(`(?m)^\s*import\s+main\s*$`)
+			updatedContent := reImportMain.ReplaceAllString(string(content), "import _main")
+
+			reFromMain := regexp.MustCompile(`(?m)^\s*from\s+main\s+import\s+`)
+			updatedContent = reFromMain.ReplaceAllString(updatedContent, "from _main import ")
+
+			err = os.WriteFile(wrapperPath, []byte(updatedContent), 0644)
+			if err != nil {
+				return fmt.Errorf("failed to update %s: %v", wrapperFile, err)
+			}
+		}
+	}
+
+	upifyWrapperPath := filepath.Join(tempDirPath, "upify_wrapper.py")
+	newMainPath := filepath.Join(tempDirPath, "main.py")
+	err := os.Rename(upifyWrapperPath, newMainPath)
+	if err != nil {
+		return fmt.Errorf("failed to rename upify_wrapper.py to main.py: %v", err)
+	}
+
+	return nil
+}
+
+func adjustNodeEntryPointFile(tempDirPath string) error {
+	indexPath := filepath.Join(tempDirPath, "index.js")
+	_indexPath := filepath.Join(tempDirPath, "_index.js")
+
+	if _, err := os.Stat(indexPath); err == nil {
+		err := os.Rename(indexPath, _indexPath)
+		if err != nil {
+			return fmt.Errorf("failed to rename index.js to _index.js: %v", err)
+		}
+	}
+
+	wrapperFiles := []string{"upify_wrapper.js", "request_wrapper.js"}
+
+	for _, wrapperFile := range wrapperFiles {
+		wrapperPath := filepath.Join(tempDirPath, wrapperFile)
+		if _, err := os.Stat(wrapperPath); err == nil {
+			content, err := os.ReadFile(wrapperPath)
+			if err != nil {
+				return fmt.Errorf("failed to read %s: %v", wrapperFile, err)
+			}
+
+			reRequireMain := regexp.MustCompile(`(?m)^\s*const\s+(\w+)\s*=\s*require\(['"]\.?\/index['"]\)`)
+			updatedContent := reRequireMain.ReplaceAllString(string(content), "const $1 = require('./_index')")
+
+			err = os.WriteFile(wrapperPath, []byte(updatedContent), 0644)
+			if err != nil {
+				return fmt.Errorf("failed to update %s: %v", wrapperFile, err)
+			}
+		}
+	}
+
+	upifyWrapperPath := filepath.Join(tempDirPath, "upify_wrapper.js")
+	newIndexPath := filepath.Join(tempDirPath, "index.js")
+	err := os.Rename(upifyWrapperPath, newIndexPath)
+	if err != nil {
+		return fmt.Errorf("failed to rename upify_wrapper.js to index.js: %v", err)
 	}
 
 	return nil
