@@ -12,6 +12,7 @@ import (
 type PackageJSON struct {
 	Scripts      map[string]string `json:"scripts"`
 	Dependencies map[string]string `json:"dependencies"`
+	Main         string            `json:"main,omitempty"`
 	Other        map[string]interface{}
 }
 
@@ -44,6 +45,10 @@ func ParsePackageJSON(path string) (*PackageJSON, error) {
 		}
 	}
 
+	if main, ok := temp["main"].(string); ok {
+		pkg.Main = main
+	}
+
 	for k, v := range temp {
 		if k != "scripts" && k != "dependencies" {
 			pkg.Other[k] = v
@@ -57,6 +62,9 @@ func WritePackageJSON(path string, pkg *PackageJSON) error {
 	temp := pkg.Other
 	temp["scripts"] = pkg.Scripts
 	temp["dependencies"] = pkg.Dependencies
+	if pkg.Main != "" {
+		temp["main"] = pkg.Main
+	}
 
 	data, err := json.MarshalIndent(temp, "", "  ")
 	if err != nil {
@@ -138,4 +146,8 @@ func AddScript(pkg *PackageJSON, scriptName string, scriptValue string) {
 		pkg.Scripts = make(map[string]string)
 	}
 	pkg.Scripts[scriptName] = scriptValue
+}
+
+func SetMain(pkg *PackageJSON, mainFile string) {
+	pkg.Main = mainFile
 }

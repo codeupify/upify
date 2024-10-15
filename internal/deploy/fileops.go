@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-var excludedDirs = []string{".git", "node_modules", "venv", ".", ".upify"}
+var excludedDirs = []string{".git", "node_modules", "venv", ".upify", "dist"}
+var excludedFiles = []string{"package-lock.json", "yarn.lock"}
 
 func copyFile(src, dest string) error {
 	sourceFile, err := os.Open(src)
@@ -34,15 +35,26 @@ func CopyFilesToTempDir(srcDir, destDir string) error {
 			return err
 		}
 
-		for _, exclude := range excludedDirs {
-			if strings.HasSuffix(path, "/"+exclude) || strings.HasSuffix(path, "/"+exclude+"/") {
-				return filepath.SkipDir
-			}
-		}
-
 		relPath, err := filepath.Rel(srcDir, path)
 		if err != nil {
 			return err
+		}
+
+		for _, exclude := range excludedDirs {
+			if strings.HasPrefix(relPath, exclude) || relPath == exclude {
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+		}
+
+		if !info.IsDir() {
+			for _, exclude := range excludedFiles {
+				if relPath == exclude || filepath.Base(relPath) == exclude {
+					return nil
+				}
+			}
 		}
 
 		destPath := filepath.Join(destDir, relPath)

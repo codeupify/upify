@@ -1,15 +1,13 @@
 {
-    "name": "typescript-lambda-app",
+    "name": "typescript-app",
     "version": "1.0.0",
-    "description": "Typescript app for AWS Lambda",
-    "main": "index.ts",
+    "description": "Typescript app",
+    "main": "dist/index.js",
     "scripts": {
     "build": "tsc",
-    "start": "node index.js"
+    "start": "node dist/index.js"
   },
-    "keywords": ["typescript", "lambda", "serverless"],
     "author": "",
-    "license": "ISC",
     "dependencies": {
       "axios": "^1.7.7"
     },

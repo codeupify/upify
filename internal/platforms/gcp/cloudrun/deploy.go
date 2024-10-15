@@ -91,6 +91,8 @@ func updatePackageJson(cfg *config.Config, tempDirPath string) error {
 		return fmt.Errorf("failed to parse package.json: %v", err)
 	}
 
+	deploy.SetMain(pkgJson, "upify_wrapper.js")
+
 	deploy.AddPackage(pkgJson, "@google-cloud/functions-framework", "^3.0.0")
 	if pkgJson.Scripts != nil && pkgJson.Scripts["build"] != "" {
 		buildCommand := "npm run build"
@@ -108,10 +110,8 @@ func adjustEntryPointFile(cfg *config.Config, tempDirPath string) error {
 	switch cfg.Language {
 	case config.Python:
 		return adjustPythonEntryPointFile(tempDirPath)
-	case config.JavaScript, config.TypeScript:
-		return adjustNodeEntryPointFile(tempDirPath)
 	default:
-		return fmt.Errorf("unsupported language: %v", cfg.Language)
+		return nil
 	}
 }
 
@@ -159,46 +159,46 @@ func adjustPythonEntryPointFile(tempDirPath string) error {
 	return nil
 }
 
-func adjustNodeEntryPointFile(tempDirPath string) error {
-	indexPath := filepath.Join(tempDirPath, "index.js")
-	_indexPath := filepath.Join(tempDirPath, "_index.js")
+// func adjustNodeEntryPointFile(tempDirPath string) error {
+// 	indexPath := filepath.Join(tempDirPath, "index.js")
+// 	_indexPath := filepath.Join(tempDirPath, "_index.js")
 
-	if _, err := os.Stat(indexPath); err == nil {
-		err := os.Rename(indexPath, _indexPath)
-		if err != nil {
-			return fmt.Errorf("failed to rename index.js to _index.js: %v", err)
-		}
-	}
+// 	if _, err := os.Stat(indexPath); err == nil {
+// 		err := os.Rename(indexPath, _indexPath)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to rename index.js to _index.js: %v", err)
+// 		}
+// 	}
 
-	wrapperFiles := []string{"upify_wrapper.js", "request_wrapper.js"}
+// 	wrapperFiles := []string{"upify_wrapper.js", "request_wrapper.js"}
 
-	for _, wrapperFile := range wrapperFiles {
-		wrapperPath := filepath.Join(tempDirPath, wrapperFile)
-		if _, err := os.Stat(wrapperPath); err == nil {
-			content, err := os.ReadFile(wrapperPath)
-			if err != nil {
-				return fmt.Errorf("failed to read %s: %v", wrapperFile, err)
-			}
+// 	for _, wrapperFile := range wrapperFiles {
+// 		wrapperPath := filepath.Join(tempDirPath, wrapperFile)
+// 		if _, err := os.Stat(wrapperPath); err == nil {
+// 			content, err := os.ReadFile(wrapperPath)
+// 			if err != nil {
+// 				return fmt.Errorf("failed to read %s: %v", wrapperFile, err)
+// 			}
 
-			reRequireMain := regexp.MustCompile(`require\(['"]\.?\/index['"]\)`)
-			updatedContent := reRequireMain.ReplaceAllString(string(content), "require('./_index')")
+// 			reRequireMain := regexp.MustCompile(`require\(['"]\.?\/index['"]\)`)
+// 			updatedContent := reRequireMain.ReplaceAllString(string(content), "require('./_index')")
 
-			err = os.WriteFile(wrapperPath, []byte(updatedContent), 0644)
-			if err != nil {
-				return fmt.Errorf("failed to update %s: %v", wrapperFile, err)
-			}
-		}
-	}
+// 			err = os.WriteFile(wrapperPath, []byte(updatedContent), 0644)
+// 			if err != nil {
+// 				return fmt.Errorf("failed to update %s: %v", wrapperFile, err)
+// 			}
+// 		}
+// 	}
 
-	upifyWrapperPath := filepath.Join(tempDirPath, "upify_wrapper.js")
-	newIndexPath := filepath.Join(tempDirPath, "index.js")
-	err := os.Rename(upifyWrapperPath, newIndexPath)
-	if err != nil {
-		return fmt.Errorf("failed to rename upify_wrapper.js to index.js: %v", err)
-	}
+// 	upifyWrapperPath := filepath.Join(tempDirPath, "upify_wrapper.js")
+// 	newIndexPath := filepath.Join(tempDirPath, "index.js")
+// 	err := os.Rename(upifyWrapperPath, newIndexPath)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to rename upify_wrapper.js to index.js: %v", err)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func getBucketName(cfg *config.Config) string {
 	return fmt.Sprintf("upify-%s-%s-source", cfg.GCPCloudRun.ProjectId, cfg.Name)
