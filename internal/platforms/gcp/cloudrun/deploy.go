@@ -180,8 +180,8 @@ func adjustNodeEntryPointFile(tempDirPath string) error {
 				return fmt.Errorf("failed to read %s: %v", wrapperFile, err)
 			}
 
-			reRequireMain := regexp.MustCompile(`(?m)^\s*const\s+(\w+)\s*=\s*require\(['"]\.?\/index['"]\)`)
-			updatedContent := reRequireMain.ReplaceAllString(string(content), "const $1 = require('./_index')")
+			reRequireMain := regexp.MustCompile(`require\(['"]\.?\/index['"]\)`)
+			updatedContent := reRequireMain.ReplaceAllString(string(content), "require('./_index')")
 
 			err = os.WriteFile(wrapperPath, []byte(updatedContent), 0644)
 			if err != nil {
@@ -380,10 +380,6 @@ func createFunction(cfg *config.Config, ctx context.Context, bucketName string, 
 			return fmt.Errorf("failed to wait for operation: %w", err)
 		}
 		isNewFunction = false
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to create/update function: %v", err)
 	}
 
 	serviceName := fmt.Sprintf("projects/%s/locations/%s/services/%s", cfg.GCPCloudRun.ProjectId, cfg.GCPCloudRun.Region, cfg.Name)
