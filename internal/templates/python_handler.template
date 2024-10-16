@@ -1,0 +1,17 @@
+import os
+from {ENTRYPOINT} import {APP_VAR}
+
+handler = None
+
+if os.getenv("UPIFY_DEPLOY_PLATFORM") == "gcp-cloudrun":
+    import functions_framework
+
+    @functions_framework.http
+    def flask_function(request):
+        with {APP_VAR}.request_context(request.environ):
+            return {APP_VAR}.full_dispatch_request()
+
+    handler = flask_function
+elif os.getenv("UPIFY_DEPLOY_PLATFORM") == "aws-lambda":
+    from apig_wsgi import make_lambda_handler
+    handler = make_lambda_handler({APP_VAR})

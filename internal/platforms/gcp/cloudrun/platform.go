@@ -10,7 +10,6 @@ import (
 	"github.com/codeupify/upify/internal/config"
 )
 
-//go:embed templates/*
 var templateFS embed.FS
 
 func AddConfig(cfg *config.Config, region string, projectID string) error {

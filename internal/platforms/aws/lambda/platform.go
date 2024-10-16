@@ -1,17 +1,15 @@
 package lambda
 
 import (
-	"embed"
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/codeupify/upify/internal/config"
+	template "github.com/codeupify/upify/internal/templates"
 )
-
-//go:embed templates/*
-var templateFS embed.FS
 
 func AddConfig(cfg *config.Config, region string, runtime string) error {
 
@@ -26,8 +24,10 @@ func AddConfig(cfg *config.Config, region string, runtime string) error {
 func GenerateLambdaHandler(cfg *config.Config) error {
 
 	var (
-		handlerContent string
-		handlerPath    string
+		handlerTemplate   string
+		handlerOutputPath string
+		mainTemplate      string
+		mainOutputPath    string
 	)
 
 	if cfg.Framework != "" && cfg.Entrypoint == "" {
@@ -38,51 +38,50 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 		return fmt.Errorf("app variable is not specified in the configuration")
 	}
 
-	if cfg.Framework == config.Express {
-		content, err := templateFS.ReadFile("templates/express_lambda_handler.template")
-		if err != nil {
-			return fmt.Errorf("failed to read Express template file: %w", err)
+	if cfg.Language == config.Python {
+		handlerTemplate = template.PythonHandlerTemplate
+		handlerOutputPath = filepath.Join(".", "upify_handler.py")
+
+		if cfg.Framework != "" {
+			mainTemplate = template.PythonMainTemplate
+			mainOutputPath = filepath.Join(".", "upify_main.py")
 		}
+	} else if cfg.Language == config.JavaScript || cfg.Language == config.TypeScript {
+		handlerTemplate = template.NodeHandlerTemplate
+		handlerOutputPath = filepath.Join(".", "upify_handler.js")
 
-		moduleName := strings.TrimSuffix(filepath.Base(cfg.Entrypoint), filepath.Ext(cfg.Entrypoint))
-		handlerContent = strings.ReplaceAll(string(content), "{MODULE_NAME}", moduleName)
-		handlerContent = strings.ReplaceAll(handlerContent, "{APP_VAR}", cfg.AppVar)
-		handlerPath = filepath.Join(".", "lambda_handler.js")
-	} else if cfg.Framework == config.Flask {
-		content, err := templateFS.ReadFile("templates/flask_lambda_handler.template")
-		if err != nil {
-			return fmt.Errorf("failed to read Flask template file: %w", err)
-		}
-
-		moduleName := strings.TrimSuffix(filepath.Base(cfg.Entrypoint), filepath.Ext(cfg.Entrypoint))
-		handlerContent = strings.ReplaceAll(string(content), "{MODULE_NAME}", moduleName)
-		handlerContent = strings.ReplaceAll(handlerContent, "{APP_VAR}", cfg.AppVar)
-		handlerPath = filepath.Join(".", "lambda_handler.py")
-	} else {
-		switch cfg.Language {
-		case config.Python:
-			content, err := templateFS.ReadFile("templates/python_lambda_handler.template")
-			if err != nil {
-				return fmt.Errorf("failed to read Python template file: %w", err)
-			}
-
-			handlerContent = string(content)
-			handlerPath = filepath.Join(".", "lambda_handler.py")
-		case config.JavaScript, config.TypeScript:
-			content, err := templateFS.ReadFile("templates/node_lambda_handler.template")
-			if err != nil {
-				return fmt.Errorf("failed to read Node.js template file: %w", err)
-			}
-			handlerContent = string(content)
-			handlerPath = filepath.Join(".", "lambda_handler.js")
+		if cfg.Framework != "" {
+			mainTemplate = template.NodeMainTemplate
+			mainOutputPath = filepath.Join(".", "upify_main.js")
 		}
 	}
 
-	fmt.Println("Saving AWS Lambda handler to:", handlerPath)
+	handlerContent := strings.ReplaceAll(handlerTemplate, "{ENTRYPOINT}", filepath.Base(cfg.Entrypoint))
+	handlerContent = strings.ReplaceAll(handlerContent, "{ENTRYPOINT}", filepath.Base(cfg.Entrypoint))
+
+	handlerPath := filepath.Join(".", handlerOutputPath)
+	if _, err := os.Stat(handlerPath); err == nil {
+		return fmt.Errorf("handler file already exists at %s", handlerPath)
+	}
+
+	fmt.Println("Saving upify_handler to:", handlerPath)
 	if err := os.WriteFile(handlerPath, []byte(handlerContent), 0644); err != nil {
 		return fmt.Errorf("failed to write lambda handler file: %w", err)
 	}
 
-	fmt.Printf("Generated lambda handler at %s\n", handlerPath)
+	if mainOutputPath != "" {
+		if _, err := os.Stat(mainOutputPath); err == nil {
+			return fmt.Errorf("main file already exists at %s", mainOutputPath)
+		}
+
+		fmt.Println("Saving upify_main to:", mainOutputPath)
+		err := os.WriteFile(mainOutputPath, []byte(mainTemplate), 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write lambda main file: %w", err)
+		}
+
+		fmt.Printf("\nAdd your code to %s to wrap your script with request/response\n", mainOutputPath)
+	}
+
 	return nil
 }
