@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/codeupify/upify/internal/config"
+	"github.com/codeupify/upify/internal/platforms/aws/lambda"
 	"github.com/codeupify/upify/internal/platforms/gcp/cloudrun"
 	"github.com/spf13/cobra"
 )
@@ -39,9 +40,9 @@ func deploy(platform string, cfg *config.Config) error {
 			return fmt.Errorf("aws-lambda configuration is not set up. Please run 'upify platform add aws-lambda' first")
 		}
 		fmt.Println("Deploying to AWS Lambda...")
-		// if err := lambda.Deploy(cfg); err != nil {
-		// 	return fmt.Errorf("failed to deploy to AWS Lambda: %w", err)
-		// }
+		if err := lambda.Deploy(cfg); err != nil {
+			return fmt.Errorf("failed to deploy to AWS Lambda: %w", err)
+		}
 	case "gcp-cloudrun":
 		if cfg.GCPCloudRun == nil {
 			return fmt.Errorf("gcp-cloudrun configuration is not set up. Please run 'upify platform add gcp-cloudrun' first")

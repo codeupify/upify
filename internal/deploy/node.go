@@ -74,7 +74,7 @@ func WritePackageJSON(path string, pkg *PackageJSON) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-func InstallPackages(dir string, pkg *PackageJSON, packageManager config.PackageManager) error {
+func InstallNodePackages(dir string, packageManager config.PackageManager) error {
 	var installCmd *exec.Cmd
 	if packageManager == config.Npm {
 		installCmd = exec.Command("npm", "install", "--production")
@@ -89,23 +89,22 @@ func InstallPackages(dir string, pkg *PackageJSON, packageManager config.Package
 		return fmt.Errorf("failed to install Node.js dependencies: %v", err)
 	}
 
-	if _, hasBuild := pkg.Scripts["build"]; hasBuild {
-		var buildCmd *exec.Cmd
-		if packageManager == config.Npm {
-			buildCmd = exec.Command("npm", "run", "build")
-		} else {
-			buildCmd = exec.Command("yarn", "build")
-		}
+	return nil
+}
 
-		buildCmd.Dir = dir
-		buildCmd.Stdout = os.Stdout
-		buildCmd.Stderr = os.Stderr
-		if err := buildCmd.Run(); err != nil {
-			return fmt.Errorf("failed to build Node.js project: %v", err)
-		}
-		fmt.Println("Successfully built Node.js project")
+func InstallNodePackage(dir string, packageName string, packageManager config.PackageManager) error {
+	var installCmd *exec.Cmd
+	if packageManager == config.Npm {
+		installCmd = exec.Command("npm", "install", packageName, "--save")
 	} else {
-		fmt.Println("No build script found; skipping build step")
+		installCmd = exec.Command("yarn", "add", packageName, "--save")
+	}
+
+	installCmd.Dir = dir
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install Node.js dependency: %v", err)
 	}
 
 	return nil
@@ -134,20 +133,20 @@ func Build(dir string, pkg *PackageJSON, packageManager config.PackageManager) e
 	return nil
 }
 
-func AddPackage(pkg *PackageJSON, packageName string, version string) {
+func AddPackageToPackageJSON(pkg *PackageJSON, packageName string, version string) {
 	if pkg.Dependencies == nil {
 		pkg.Dependencies = make(map[string]string)
 	}
 	pkg.Dependencies[packageName] = version
 }
 
-func AddScript(pkg *PackageJSON, scriptName string, scriptValue string) {
+func AddScriptToPackageJSON(pkg *PackageJSON, scriptName string, scriptValue string) {
 	if pkg.Scripts == nil {
 		pkg.Scripts = make(map[string]string)
 	}
 	pkg.Scripts[scriptName] = scriptValue
 }
 
-func SetMain(pkg *PackageJSON, mainFile string) {
+func SetMainInPackageJSON(pkg *PackageJSON, mainFile string) {
 	pkg.Main = mainFile
 }

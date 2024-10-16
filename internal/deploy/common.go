@@ -39,9 +39,9 @@ func VerifyWrapperExists(language config.Language) error {
 	fileName := ""
 	switch language {
 	case config.Python:
-		fileName = "upify_wrapper.py"
+		fileName = "upify_handler.py"
 	case config.JavaScript, config.TypeScript:
-		fileName = "upify_wrapper.js"
+		fileName = "upify_handler.js"
 	}
 
 	wrapperPath := filepath.Join(cwd, fileName)

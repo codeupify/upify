@@ -91,16 +91,16 @@ func updatePackageJson(cfg *config.Config, tempDirPath string) error {
 		return fmt.Errorf("failed to parse package.json: %v", err)
 	}
 
-	deploy.SetMain(pkgJson, "upify_wrapper.js")
+	deploy.SetMainInPackageJSON(pkgJson, "upify_handler.js")
 
-	deploy.AddPackage(pkgJson, "@google-cloud/functions-framework", "^3.0.0")
+	deploy.AddPackageToPackageJSON(pkgJson, "@google-cloud/functions-framework", "^3.0.0")
 	if pkgJson.Scripts != nil && pkgJson.Scripts["build"] != "" {
 		buildCommand := "npm run build"
 		if cfg.PackageManager == config.Yarn {
 			buildCommand = "yarn build"
 		}
 
-		deploy.AddScript(pkgJson, "gcp-build", buildCommand)
+		deploy.AddScriptToPackageJSON(pkgJson, "gcp-build", buildCommand)
 	}
 
 	return deploy.WritePackageJSON(filepath.Join(tempDirPath, "package.json"), pkgJson)
@@ -126,7 +126,7 @@ func adjustPythonEntryPointFile(tempDirPath string) error {
 		}
 	}
 
-	wrapperFiles := []string{"upify_wrapper.py", "request_wrapper.py"}
+	wrapperFiles := []string{"upify_handler.py", "upify_main.py"}
 
 	for _, wrapperFile := range wrapperFiles {
 		wrapperPath := filepath.Join(tempDirPath, wrapperFile)
@@ -149,11 +149,11 @@ func adjustPythonEntryPointFile(tempDirPath string) error {
 		}
 	}
 
-	upifyWrapperPath := filepath.Join(tempDirPath, "upify_wrapper.py")
+	upifyWrapperPath := filepath.Join(tempDirPath, "upify_handler.py")
 	newMainPath := filepath.Join(tempDirPath, "main.py")
 	err := os.Rename(upifyWrapperPath, newMainPath)
 	if err != nil {
-		return fmt.Errorf("failed to rename upify_wrapper.py to main.py: %v", err)
+		return fmt.Errorf("failed to rename upify_handler.py to main.py: %v", err)
 	}
 
 	return nil
@@ -170,7 +170,7 @@ func adjustPythonEntryPointFile(tempDirPath string) error {
 // 		}
 // 	}
 
-// 	wrapperFiles := []string{"upify_wrapper.js", "request_wrapper.js"}
+// 	wrapperFiles := []string{"upify_handler.js", "upify_main.js"}
 
 // 	for _, wrapperFile := range wrapperFiles {
 // 		wrapperPath := filepath.Join(tempDirPath, wrapperFile)
@@ -190,11 +190,11 @@ func adjustPythonEntryPointFile(tempDirPath string) error {
 // 		}
 // 	}
 
-// 	upifyWrapperPath := filepath.Join(tempDirPath, "upify_wrapper.js")
+// 	upifyWrapperPath := filepath.Join(tempDirPath, "upify_handler.js")
 // 	newIndexPath := filepath.Join(tempDirPath, "index.js")
 // 	err := os.Rename(upifyWrapperPath, newIndexPath)
 // 	if err != nil {
-// 		return fmt.Errorf("failed to rename upify_wrapper.js to index.js: %v", err)
+// 		return fmt.Errorf("failed to rename upify_handler.js to index.js: %v", err)
 // 	}
 
 // 	return nil
@@ -409,6 +409,9 @@ func createFunction(cfg *config.Config, ctx context.Context, bucketName string, 
 }
 
 func validateGCPCloudRunConfig(cfg *config.Config) error {
+	if cfg.GCPCloudRun == nil {
+		return fmt.Errorf("GCP Cloud Run configuration is missing")
+	}
 	if cfg.GCPCloudRun.ProjectId == "" {
 		return fmt.Errorf("project id must be set")
 	}
