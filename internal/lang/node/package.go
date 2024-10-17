@@ -1,4 +1,4 @@
-package deploy
+package node
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/codeupify/upify/internal/config"
+	"github.com/codeupify/upify/internal/lang"
 )
 
 type PackageJSON struct {
@@ -74,9 +74,9 @@ func WritePackageJSON(path string, pkg *PackageJSON) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-func InstallNodePackages(dir string, packageManager config.PackageManager) error {
+func InstallPackagesJSON(dir string, packageManager lang.PackageManager) error {
 	var installCmd *exec.Cmd
-	if packageManager == config.Npm {
+	if packageManager == lang.Npm {
 		installCmd = exec.Command("npm", "install", "--production")
 	} else {
 		installCmd = exec.Command("yarn", "install", "--production")
@@ -92,9 +92,9 @@ func InstallNodePackages(dir string, packageManager config.PackageManager) error
 	return nil
 }
 
-func InstallNodePackage(dir string, packageName string, packageManager config.PackageManager) error {
+func InstallPackage(dir string, packageName string, packageManager lang.PackageManager) error {
 	var installCmd *exec.Cmd
-	if packageManager == config.Npm {
+	if packageManager == lang.Npm {
 		installCmd = exec.Command("npm", "install", packageName, "--save")
 	} else {
 		installCmd = exec.Command("yarn", "add", packageName, "--save")
@@ -110,10 +110,10 @@ func InstallNodePackage(dir string, packageName string, packageManager config.Pa
 	return nil
 }
 
-func Build(dir string, pkg *PackageJSON, packageManager config.PackageManager) error {
+func Build(dir string, pkg *PackageJSON, packageManager lang.PackageManager) error {
 	if _, hasBuild := pkg.Scripts["build"]; hasBuild {
 		var buildCmd *exec.Cmd
-		if packageManager == config.Npm {
+		if packageManager == lang.Npm {
 			buildCmd = exec.Command("npm", "run", "build")
 		} else {
 			buildCmd = exec.Command("yarn", "build")

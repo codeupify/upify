@@ -1,4 +1,4 @@
-package deploy
+package python
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-func InstallPythonLibraries(dir string) error {
+func InstallRequirements(dir string) error {
 	requirementsFile := filepath.Join(dir, "requirements.txt")
 	if _, err := os.Stat(requirementsFile); err == nil {
 		cmd := exec.Command("pip", "install", "-r", requirementsFile, "-t", dir)
@@ -21,7 +21,7 @@ func InstallPythonLibraries(dir string) error {
 	return nil
 }
 
-func InstallPythonLibrary(dir string, library string) error {
+func InstallLibrary(dir string, library string) error {
 	cmd := exec.Command("pip", "install", library, "-t", dir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

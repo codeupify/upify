@@ -5,8 +5,9 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/codeupify/upify/internal/config"
-	"github.com/codeupify/upify/internal/platforms/aws/lambda"
-	"github.com/codeupify/upify/internal/platforms/gcp/cloudrun"
+	"github.com/codeupify/upify/internal/lang"
+	"github.com/codeupify/upify/internal/platform/aws/lambda"
+	"github.com/codeupify/upify/internal/platform/gcp/cloudrun"
 	"github.com/spf13/cobra"
 )
 
@@ -62,28 +63,6 @@ func init() {
 	gcpCloudRunCmd.Flags().StringVar(&gcpRuntime, "runtime", "", "Cloud Run runtime")
 }
 
-func getAWSRuntimes(language config.Language) []string {
-	switch language {
-	case config.Python:
-		return []string{"python3.8", "python3.9", "python3.10", "python3.11", "python3.12"}
-	case config.JavaScript, config.TypeScript:
-		return []string{"nodejs18.x", "nodejs20.x"}
-	default:
-		return []string{}
-	}
-}
-
-func getGCPRuntimes(language config.Language) []string {
-	switch language {
-	case config.Python:
-		return []string{"python37", "python38", "python39", "python310", "python311", "python312"}
-	case config.JavaScript, config.TypeScript:
-		return []string{"nodejs10", "nodejs12", "nodejs14", "nodejs16", "nodejs18", "nodejs20", "nodejs22"}
-	default:
-		return []string{}
-	}
-}
-
 func addAWSLambda(cmd *cobra.Command, args []string) error {
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -119,9 +98,9 @@ func addAWSLambda(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := lambda.GenerateLambdaHandler(cfg); err != nil {
-		return err
-	}
+	// if err := lambda.GenerateLambdaHandler(cfg); err != nil {
+	// 	return err
+	// }
 
 	if err := config.SaveConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
@@ -204,4 +183,26 @@ func listPlatforms() error {
 	}
 
 	return nil
+}
+
+func getAWSRuntimes(language lang.Language) []string {
+	switch language {
+	case lang.Python:
+		return []string{"python3.8", "python3.9", "python3.10", "python3.11", "python3.12"}
+	case lang.JavaScript, lang.TypeScript:
+		return []string{"nodejs18.x", "nodejs20.x"}
+	default:
+		return []string{}
+	}
+}
+
+func getGCPRuntimes(language lang.Language) []string {
+	switch language {
+	case lang.Python:
+		return []string{"python37", "python38", "python39", "python310", "python311", "python312"}
+	case lang.JavaScript, lang.TypeScript:
+		return []string{"nodejs10", "nodejs12", "nodejs14", "nodejs16", "nodejs18", "nodejs20", "nodejs22"}
+	default:
+		return []string{}
+	}
 }

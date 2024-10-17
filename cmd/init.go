@@ -9,11 +9,150 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/codeupify/upify/internal/config"
+	"github.com/codeupify/upify/internal/framework"
+	"github.com/codeupify/upify/internal/lang"
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	rootCmd.AddCommand(initCmd)
+}
+
+var initCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Initializes Upify",
+	Long:  "Creates the .upify folder and a basic config.yml",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var (
+			selectedFramework framework.Framework
+			selectedLanguage  lang.Language
+			entrypoint        string
+			appVar            string
+			projectName       string
+		)
+
+		frameworkStr, err := askFramework()
+		if err != nil {
+			return err
+		}
+
+		switch frameworkStr {
+		case "flask":
+
+			ret, err := askEntrypoint("Enter the relative path to your main application file (e.g., app.py):", "app.py")
+			if err != nil {
+				return err
+			}
+			entrypoint = ret
+
+			ret, err = askAppVar("Enter the name of the Flask application instance variable (default 'app'):", "app")
+			if err != nil {
+				return err
+			}
+			appVar = ret
+
+			selectedFramework = framework.Framework(frameworkStr)
+			selectedLanguage = lang.Python
+
+		case "express":
+
+			ret, err := askEntrypoint("Enter the relative path to your main application file (e.g., app.js):", "app.js")
+			if err != nil {
+				return err
+			}
+			entrypoint = ret
+
+			ret, err = askAppVar("Enter the name of the Express application instance variable (default 'app'):", "app")
+			if err != nil {
+				return err
+			}
+			appVar = ret
+
+			language, err := determineLanguage(entrypoint)
+			if err != nil {
+				return err
+			}
+
+			selectedFramework = framework.Framework(frameworkStr)
+			selectedLanguage = language
+
+		case "other/none":
+
+			language, err := askLanguage()
+			if err != nil {
+				return err
+			}
+
+			selectedLanguage = language
+		}
+
+		// if selectedLanguage == config.Python {
+		// 	pythonVersion, err := detectPythonVersion()
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	ret, err := askRuntimeVersion(pythonVersion, "Python")
+		// 	if err != nil {
+		// 		return err
+		// 	}
+
+		// 	selectedRuntime = ret
+		// } else if selectedLanguage == config.JavaScript || selectedLanguage == config.TypeScript {
+		// 	nodeVersion, err := detectNodeVersion()
+		// 	if err != nil {
+		// 		return err
+		// 	}
+
+		// 	ret, err := askRuntimeVersion(nodeVersion, "Node")
+		// 	if err != nil {
+		// 		return err
+		// 	}
+
+		// 	selectedRuntime = ret
+		// }
+
+		ret, err := askProjectName()
+		if err != nil {
+			return err
+		}
+
+		projectName = ret
+
+		if config.ConfigExists() {
+			confirmOverwrite, err := askOverwriteConfirmation()
+			if err != nil {
+				return err
+			}
+
+			if !confirmOverwrite {
+				fmt.Println("Configuration not overwritten.")
+				return nil
+			}
+		}
+
+		packageManager, err := determinePackageManager(selectedLanguage)
+		if err != nil {
+			return err
+		}
+
+		cfg := &config.Config{
+			Framework:      selectedFramework,
+			Language:       selectedLanguage,
+			PackageManager: packageManager,
+			Entrypoint:     entrypoint,
+			Name:           projectName,
+			AppVar:         appVar,
+		}
+
+		if err := config.SaveConfig(cfg); err != nil {
+			return fmt.Errorf("failed to save configuration: %w", err)
+		}
+
+		fmt.Println("Creating .upify folder...")
+		fmt.Println("Saving configuration to .upify/config.yml...")
+		fmt.Println("Done!")
+		return nil
+	},
 }
 
 func validateEntrypoint(path string) error {
@@ -24,18 +163,18 @@ func validateEntrypoint(path string) error {
 	return nil
 }
 
-func determinePackageManager(language config.Language) (config.PackageManager, error) {
+func determinePackageManager(language lang.Language) (lang.PackageManager, error) {
 	switch language {
-	case config.Python:
-		return config.Pip, nil
-	case config.JavaScript, config.TypeScript:
+	case lang.Python:
+		return lang.Pip, nil
+	case lang.JavaScript, lang.TypeScript:
 		if _, err := os.Stat("yarn.lock"); err == nil {
-			return config.Yarn, nil
+			return lang.Yarn, nil
 		}
 		if _, err := os.Stat("package-lock.json"); err == nil {
-			return config.Npm, nil
+			return lang.Npm, nil
 		}
-		return config.Npm, nil
+		return lang.Npm, nil
 	default:
 		return "", fmt.Errorf("unsupported language: %s", language)
 	}
@@ -53,15 +192,15 @@ func determineName(providedName string) (string, error) {
 	return filepath.Base(cwd), nil
 }
 
-func determineLanguage(entrypoint string) (config.Language, error) {
+func determineLanguage(entrypoint string) (lang.Language, error) {
 	ext := filepath.Ext(entrypoint)
 	switch ext {
 	case ".py":
-		return config.Python, nil
+		return lang.Python, nil
 	case ".js":
-		return config.JavaScript, nil
+		return lang.JavaScript, nil
 	case ".ts":
-		return config.TypeScript, nil
+		return lang.TypeScript, nil
 	default:
 		return "", fmt.Errorf("unsupported file extension: %s", ext)
 	}
@@ -104,7 +243,7 @@ func askFramework() (string, error) {
 	return framework, nil
 }
 
-func askLanguage() (config.Language, error) {
+func askLanguage() (lang.Language, error) {
 	languageQ := []*survey.Question{
 		{
 			Name:     "language",
@@ -118,7 +257,7 @@ func askLanguage() (config.Language, error) {
 		return "", err
 	}
 
-	return config.Language(language), nil
+	return lang.Language(language), nil
 }
 
 func askEntrypoint(message string, defaultValue string) (string, error) {
@@ -204,142 +343,4 @@ func askOverwriteConfirmation() (bool, error) {
 	}
 
 	return confirmOverwrite, nil
-}
-
-var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initializes Upify",
-	Long:  "Creates the .upify folder and a basic config.yml",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		var (
-			selectedFramework config.Framework
-			selectedLanguage  config.Language
-			// selectedRuntime   string
-			entrypoint  string
-			appVar      string
-			projectName string
-		)
-
-		framework, err := askFramework()
-		if err != nil {
-			return err
-		}
-
-		switch framework {
-		case "flask":
-
-			ret, err := askEntrypoint("Enter the relative path to your main application file (e.g., app.py):", "app.py")
-			if err != nil {
-				return err
-			}
-			entrypoint = ret
-
-			ret, err = askAppVar("Enter the name of the Flask application instance variable (default 'app'):", "app")
-			if err != nil {
-				return err
-			}
-			appVar = ret
-
-			selectedFramework = config.Framework(framework)
-			selectedLanguage = config.Python
-
-		case "express":
-
-			ret, err := askEntrypoint("Enter the relative path to your main application file (e.g., app.js):", "app.js")
-			if err != nil {
-				return err
-			}
-			entrypoint = ret
-
-			ret, err = askAppVar("Enter the name of the Express application instance variable (default 'app'):", "app")
-			if err != nil {
-				return err
-			}
-			appVar = ret
-
-			language, err := determineLanguage(entrypoint)
-			if err != nil {
-				return err
-			}
-
-			selectedFramework = config.Framework(framework)
-			selectedLanguage = language
-
-		case "other/none":
-
-			language, err := askLanguage()
-			if err != nil {
-				return err
-			}
-
-			selectedLanguage = language
-		}
-
-		// if selectedLanguage == config.Python {
-		// 	pythonVersion, err := detectPythonVersion()
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	ret, err := askRuntimeVersion(pythonVersion, "Python")
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	selectedRuntime = ret
-		// } else if selectedLanguage == config.JavaScript || selectedLanguage == config.TypeScript {
-		// 	nodeVersion, err := detectNodeVersion()
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	ret, err := askRuntimeVersion(nodeVersion, "Node")
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	selectedRuntime = ret
-		// }
-
-		ret, err := askProjectName()
-		if err != nil {
-			return err
-		}
-
-		projectName = ret
-
-		if config.ConfigExists() {
-			confirmOverwrite, err := askOverwriteConfirmation()
-			if err != nil {
-				return err
-			}
-
-			if !confirmOverwrite {
-				fmt.Println("Configuration not overwritten.")
-				return nil
-			}
-		}
-
-		packageManager, err := determinePackageManager(selectedLanguage)
-		if err != nil {
-			return err
-		}
-
-		cfg := &config.Config{
-			Framework:      selectedFramework,
-			Language:       selectedLanguage,
-			PackageManager: packageManager,
-			Entrypoint:     entrypoint,
-			Name:           projectName,
-			AppVar:         appVar,
-		}
-
-		if err := config.SaveConfig(cfg); err != nil {
-			return fmt.Errorf("failed to save configuration: %w", err)
-		}
-
-		fmt.Println("Creating .upify folder...")
-		fmt.Println("Saving configuration to .upify/config.yml...")
-		fmt.Println("Done!")
-		return nil
-	},
 }

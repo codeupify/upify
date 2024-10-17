@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/codeupify/upify/internal/framework"
+	"github.com/codeupify/upify/internal/lang"
 	"gopkg.in/yaml.v2"
 )
 
@@ -13,15 +15,15 @@ const (
 )
 
 type Config struct {
-	Name           string             `yaml:"name"`
-	Framework      Framework          `yaml:"framework,omitempty"`
-	Language       Language           `yaml:"language"`
-	RuntimeVersion string             `yaml:"runtime_version"`
-	PackageManager PackageManager     `yaml:"package_manager"`
-	Entrypoint     string             `yaml:"entrypoint,omitempty"`
-	AppVar         string             `yaml:"app_var,omitempty"`
-	AWSLambda      *AWSLambdaConfig   `yaml:"aws-lambda,omitempty"`
-	GCPCloudRun    *GCPCloudRunConfig `yaml:"gcp-cloudrun,omitempty"`
+	Name           string              `yaml:"name"`
+	Framework      framework.Framework `yaml:"framework,omitempty"`
+	Language       lang.Language       `yaml:"language"`
+	RuntimeVersion string              `yaml:"runtime_version"`
+	PackageManager lang.PackageManager `yaml:"package_manager"`
+	Entrypoint     string              `yaml:"entrypoint,omitempty"`
+	AppVar         string              `yaml:"app_var,omitempty"`
+	AWSLambda      *AWSLambdaConfig    `yaml:"aws-lambda,omitempty"`
+	GCPCloudRun    *GCPCloudRunConfig  `yaml:"gcp-cloudrun,omitempty"`
 }
 
 type AWSLambdaConfig struct {

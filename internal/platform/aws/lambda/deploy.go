@@ -15,7 +15,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/codeupify/upify/internal/config"
-	"github.com/codeupify/upify/internal/deploy"
+	"github.com/codeupify/upify/internal/fs"
+	"github.com/codeupify/upify/internal/lang"
+	"github.com/codeupify/upify/internal/lang/node"
+	"github.com/codeupify/upify/internal/lang/python"
 )
 
 func Deploy(cfg *config.Config) error {
@@ -23,12 +26,12 @@ func Deploy(cfg *config.Config) error {
 		return err
 	}
 
-	err := deploy.VerifyWrapperExists(cfg.Language)
-	if err != nil {
-		return err
+	handlerPath := fs.GetHandlerPath(cfg.Language)
+	if _, err := os.Stat(handlerPath); os.IsNotExist(err) {
+		return fmt.Errorf("%s not found in current working directory", fs.GetHandlerFileName(cfg.Language))
 	}
 
-	envVars, err := deploy.LoadEnvVariables()
+	envVars, err := fs.LoadEnvVariables()
 	if err != nil {
 		return fmt.Errorf("failed to load environment variables: %v", err)
 	}
@@ -41,7 +44,7 @@ func Deploy(cfg *config.Config) error {
 	}
 	defer os.RemoveAll(tempDir)
 
-	err = deploy.CopyFilesToTempDir(".", tempDir)
+	err = fs.CopyFilesToTempDir(".", tempDir)
 	if err != nil {
 		return fmt.Errorf("failed to copy files to temp directory: %v", err)
 	}
@@ -52,7 +55,7 @@ func Deploy(cfg *config.Config) error {
 	}
 
 	zipPath := filepath.Join(tempDir, "source.zip")
-	err = deploy.CreateZip(tempDir, zipPath)
+	err = fs.CreateZip(tempDir, zipPath)
 	if err != nil {
 		return fmt.Errorf("failed to create zip: %v", err)
 	}
@@ -74,44 +77,44 @@ func Deploy(cfg *config.Config) error {
 
 func installRequirements(dir string, cfg *config.Config) error {
 	switch cfg.Language {
-	case config.Python:
-		err := deploy.InstallPythonLibraries(dir)
+	case lang.Python:
+		err := python.InstallRequirements(dir)
 		if err != nil {
 			return err
 		}
 
-		err = deploy.InstallPythonLibrary(dir, "flask")
+		err = python.InstallLibrary(dir, "flask")
 		if err != nil {
 			return err
 		}
 
-		err = deploy.InstallPythonLibrary(dir, "apig-wsgi")
+		err = python.InstallLibrary(dir, "apig-wsgi")
 		if err != nil {
 			return err
 		}
 
-	case config.JavaScript, config.TypeScript:
-		err := deploy.InstallNodePackages(dir, cfg.PackageManager)
+	case lang.JavaScript, lang.TypeScript:
+		err := node.InstallPackagesJSON(dir, cfg.PackageManager)
 		if err != nil {
 			return err
 		}
 
-		err = deploy.InstallNodePackage(dir, "express", cfg.PackageManager)
+		err = node.InstallPackage(dir, "express", cfg.PackageManager)
 		if err != nil {
 			return err
 		}
 
-		err = deploy.InstallNodePackage(dir, "serverless-http", cfg.PackageManager)
+		err = node.InstallPackage(dir, "serverless-http", cfg.PackageManager)
 		if err != nil {
 			return err
 		}
 
-		pkgJson, err := deploy.ParsePackageJSON(filepath.Join(dir, "package.json"))
+		pkgJson, err := node.ParsePackageJSON(filepath.Join(dir, "package.json"))
 		if err != nil {
 			return fmt.Errorf("failed to parse package.json: %v", err)
 		}
 
-		deploy.Build(dir, pkgJson, cfg.PackageManager)
+		node.Build(dir, pkgJson, cfg.PackageManager)
 	default:
 		return fmt.Errorf("unsupported language: %s", cfg.Language)
 	}

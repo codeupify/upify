@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/codeupify/upify/internal/config"
+	"github.com/codeupify/upify/internal/framework"
+	"github.com/codeupify/upify/internal/lang"
 )
 
 var templateFS embed.FS
@@ -33,10 +35,10 @@ func GenerateFiles(cfg *config.Config) error {
 
 	// Choose a base Dockerfile template based on the language/framework
 	switch cfg.Language {
-	case config.Python:
+	case lang.Python:
 		content, err := templateFS.ReadFile("templates/python_flask_dockerfile.template")
 
-		if cfg.Framework == config.Flask {
+		if cfg.Framework == framework.Flask {
 
 			if err != nil {
 				return fmt.Errorf("failed to read Python Flask Dockerfile template: %w", err)
@@ -49,8 +51,8 @@ func GenerateFiles(cfg *config.Config) error {
 			}
 			dockerfileContent = string(content)
 		}
-	case config.JavaScript, config.TypeScript:
-		if cfg.Framework == config.Express {
+	case lang.JavaScript, lang.TypeScript:
+		if cfg.Framework == framework.Express {
 			content, err := templateFS.ReadFile("templates/node_express_dockerfile.template")
 			if err != nil {
 				return fmt.Errorf("failed to read Node.js Express Dockerfile template: %w", err)

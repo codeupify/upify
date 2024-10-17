@@ -1,11 +1,10 @@
-package deploy
+package fs
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/codeupify/upify/internal/config"
 	"github.com/joho/godotenv"
 )
 
@@ -28,26 +27,4 @@ func LoadEnvVariables() (map[string]string, error) {
 	}
 
 	return env, nil
-}
-
-func VerifyWrapperExists(language config.Language) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current working directory: %v", err)
-	}
-
-	fileName := ""
-	switch language {
-	case config.Python:
-		fileName = "upify_handler.py"
-	case config.JavaScript, config.TypeScript:
-		fileName = "upify_handler.js"
-	}
-
-	wrapperPath := filepath.Join(cwd, fileName)
-	if _, err := os.Stat(wrapperPath); os.IsNotExist(err) {
-		return fmt.Errorf("%s not found in current working directory", fileName)
-	}
-
-	return nil
 }

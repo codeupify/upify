@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/codeupify/upify/internal/config"
-	"github.com/codeupify/upify/internal/platforms/aws/lambda"
-	"github.com/codeupify/upify/internal/platforms/gcp/cloudrun"
+	"github.com/codeupify/upify/internal/platform/aws/lambda"
+	"github.com/codeupify/upify/internal/platform/gcp/cloudrun"
 	"github.com/spf13/cobra"
 )
 

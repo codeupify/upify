@@ -9,7 +9,9 @@ import (
 	"regexp"
 
 	"github.com/codeupify/upify/internal/config"
-	"github.com/codeupify/upify/internal/deploy"
+	"github.com/codeupify/upify/internal/fs"
+	"github.com/codeupify/upify/internal/lang"
+	"github.com/codeupify/upify/internal/lang/node"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/run/v1"
 
@@ -23,12 +25,12 @@ func Deploy(cfg *config.Config) error {
 		return err
 	}
 
-	err := deploy.VerifyWrapperExists(cfg.Language)
-	if err != nil {
-		return err
+	handlerPath := fs.GetHandlerPath(cfg.Language)
+	if _, err := os.Stat(handlerPath); os.IsNotExist(err) {
+		return fmt.Errorf("%s not found in current working directory", fs.GetHandlerFileName(cfg.Language))
 	}
 
-	envVars, err := deploy.LoadEnvVariables()
+	envVars, err := fs.LoadEnvVariables()
 	if err != nil {
 		return fmt.Errorf("failed to load environment variables: %v", err)
 	}
@@ -41,7 +43,7 @@ func Deploy(cfg *config.Config) error {
 	}
 	defer os.RemoveAll(tempDir)
 
-	err = deploy.CopyFilesToTempDir(".", tempDir)
+	err = fs.CopyFilesToTempDir(".", tempDir)
 	if err != nil {
 		return fmt.Errorf("failed to copy files to temp directory: %v", err)
 	}
@@ -51,7 +53,7 @@ func Deploy(cfg *config.Config) error {
 		return fmt.Errorf("failed to adjust entrypoint file: %v", err)
 	}
 
-	if cfg.Language == config.JavaScript || cfg.Language == config.TypeScript {
+	if cfg.Language == lang.JavaScript || cfg.Language == lang.TypeScript {
 		err = updatePackageJson(cfg, tempDir)
 		if err != nil {
 			return fmt.Errorf("failed to update package.json: %v", err)
@@ -59,7 +61,7 @@ func Deploy(cfg *config.Config) error {
 	}
 
 	zipPath := filepath.Join(tempDir, "source.zip")
-	err = deploy.CreateZip(tempDir, zipPath)
+	err = fs.CreateZip(tempDir, zipPath)
 	if err != nil {
 		return fmt.Errorf("failed to create zip: %v", err)
 	}
@@ -86,29 +88,29 @@ func Deploy(cfg *config.Config) error {
 }
 
 func updatePackageJson(cfg *config.Config, tempDirPath string) error {
-	pkgJson, err := deploy.ParsePackageJSON(filepath.Join(tempDirPath, "package.json"))
+	pkgJson, err := node.ParsePackageJSON(filepath.Join(tempDirPath, "package.json"))
 	if err != nil {
 		return fmt.Errorf("failed to parse package.json: %v", err)
 	}
 
-	deploy.SetMainInPackageJSON(pkgJson, "upify_handler.js")
+	node.SetMainInPackageJSON(pkgJson, "upify_handler.js")
 
-	deploy.AddPackageToPackageJSON(pkgJson, "@google-cloud/functions-framework", "^3.0.0")
+	node.AddPackageToPackageJSON(pkgJson, "@google-cloud/functions-framework", "^3.0.0")
 	if pkgJson.Scripts != nil && pkgJson.Scripts["build"] != "" {
 		buildCommand := "npm run build"
-		if cfg.PackageManager == config.Yarn {
+		if cfg.PackageManager == lang.Yarn {
 			buildCommand = "yarn build"
 		}
 
-		deploy.AddScriptToPackageJSON(pkgJson, "gcp-build", buildCommand)
+		node.AddScriptToPackageJSON(pkgJson, "gcp-build", buildCommand)
 	}
 
-	return deploy.WritePackageJSON(filepath.Join(tempDirPath, "package.json"), pkgJson)
+	return node.WritePackageJSON(filepath.Join(tempDirPath, "package.json"), pkgJson)
 }
 
 func adjustEntryPointFile(cfg *config.Config, tempDirPath string) error {
 	switch cfg.Language {
-	case config.Python:
+	case lang.Python:
 		return adjustPythonEntryPointFile(tempDirPath)
 	default:
 		return nil
@@ -158,47 +160,6 @@ func adjustPythonEntryPointFile(tempDirPath string) error {
 
 	return nil
 }
-
-// func adjustNodeEntryPointFile(tempDirPath string) error {
-// 	indexPath := filepath.Join(tempDirPath, "index.js")
-// 	_indexPath := filepath.Join(tempDirPath, "_index.js")
-
-// 	if _, err := os.Stat(indexPath); err == nil {
-// 		err := os.Rename(indexPath, _indexPath)
-// 		if err != nil {
-// 			return fmt.Errorf("failed to rename index.js to _index.js: %v", err)
-// 		}
-// 	}
-
-// 	wrapperFiles := []string{"upify_handler.js", "upify_main.js"}
-
-// 	for _, wrapperFile := range wrapperFiles {
-// 		wrapperPath := filepath.Join(tempDirPath, wrapperFile)
-// 		if _, err := os.Stat(wrapperPath); err == nil {
-// 			content, err := os.ReadFile(wrapperPath)
-// 			if err != nil {
-// 				return fmt.Errorf("failed to read %s: %v", wrapperFile, err)
-// 			}
-
-// 			reRequireMain := regexp.MustCompile(`require\(['"]\.?\/index['"]\)`)
-// 			updatedContent := reRequireMain.ReplaceAllString(string(content), "require('./_index')")
-
-// 			err = os.WriteFile(wrapperPath, []byte(updatedContent), 0644)
-// 			if err != nil {
-// 				return fmt.Errorf("failed to update %s: %v", wrapperFile, err)
-// 			}
-// 		}
-// 	}
-
-// 	upifyWrapperPath := filepath.Join(tempDirPath, "upify_handler.js")
-// 	newIndexPath := filepath.Join(tempDirPath, "index.js")
-// 	err := os.Rename(upifyWrapperPath, newIndexPath)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to rename upify_handler.js to index.js: %v", err)
-// 	}
-
-// 	return nil
-// }
 
 func getBucketName(cfg *config.Config) string {
 	return fmt.Sprintf("upify-%s-%s-source", cfg.GCPCloudRun.ProjectId, cfg.Name)

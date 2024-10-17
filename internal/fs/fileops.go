@@ -1,4 +1,4 @@
-package deploy
+package fs
 
 import (
 	"archive/zip"

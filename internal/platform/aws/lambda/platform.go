@@ -8,8 +8,22 @@ import (
 	"strings"
 
 	"github.com/codeupify/upify/internal/config"
-	template "github.com/codeupify/upify/internal/templates"
+	"github.com/codeupify/upify/internal/lang"
+	template "github.com/codeupify/upify/internal/template"
 )
+
+const pythonCode = `if os.getenv("UPIFY_DEPLOY_PLATFORM") == "aws-lambda":
+    from apig_wsgi import make_lambda_handler
+    handler = make_lambda_handler({APP_VAR})`
+
+const nodeCode = `if (process.env.UPIFY_DEPLOY_PLATFORM === 'aws-lambda') {
+    const serverless = require('serverless-http');
+    let expressApp = {APP_VAR};
+    if ({APP_VAR} && {APP_VAR}['app']) {
+        expressApp = {APP_VAR}['app'];
+      }
+      module.exports.handler = serverless(expressApp);
+}`
 
 func AddConfig(cfg *config.Config, region string, runtime string) error {
 
@@ -21,7 +35,7 @@ func AddConfig(cfg *config.Config, region string, runtime string) error {
 	return nil
 }
 
-func GenerateLambdaHandler(cfg *config.Config) error {
+func AddHandler(cfg *config.Config) error {
 
 	var (
 		handlerTemplate   string
@@ -38,7 +52,23 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 		return fmt.Errorf("app variable is not specified in the configuration")
 	}
 
-	if cfg.Language == config.Python {
+	extension := ""
+	switch cfg.Language {
+	case lang.Python:
+		extension = ".py"
+	case lang.JavaScript, lang.TypeScript:
+		extension = ".js"
+	default:
+		return fmt.Errorf("unsupported language: %s", cfg.Language)
+	}
+
+	targetPath := filepath.Join(".", "upify_handler"+extension)
+
+	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
+		return fmt.Errorf("upify_handler file does not exist at %s", targetPath)
+	}
+
+	if cfg.Language == lang.Python {
 		handlerTemplate = template.PythonHandlerTemplate
 		handlerOutputPath = filepath.Join(".", "upify_handler.py")
 
@@ -46,7 +76,7 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 			mainTemplate = template.PythonMainTemplate
 			mainOutputPath = filepath.Join(".", "upify_main.py")
 		}
-	} else if cfg.Language == config.JavaScript || cfg.Language == config.TypeScript {
+	} else if cfg.Language == lang.JavaScript || cfg.Language == lang.TypeScript {
 		handlerTemplate = template.NodeHandlerTemplate
 		handlerOutputPath = filepath.Join(".", "upify_handler.js")
 
@@ -57,11 +87,13 @@ func GenerateLambdaHandler(cfg *config.Config) error {
 	}
 
 	handlerContent := strings.ReplaceAll(handlerTemplate, "{ENTRYPOINT}", filepath.Base(cfg.Entrypoint))
-	handlerContent = strings.ReplaceAll(handlerContent, "{ENTRYPOINT}", filepath.Base(cfg.Entrypoint))
+	handlerContent = strings.ReplaceAll(handlerContent, "{APP_VAR}", cfg.AppVar)
 
 	handlerPath := filepath.Join(".", handlerOutputPath)
-	if _, err := os.Stat(handlerPath); err == nil {
-		return fmt.Errorf("handler file already exists at %s", handlerPath)
+	_, err := os.Stat(handlerPath)
+
+	if err == "" {
+		return fmt.Printf("handler file already exists at %s", handlerPath)
 	}
 
 	fmt.Println("Saving upify_handler to:", handlerPath)
