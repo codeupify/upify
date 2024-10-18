@@ -98,9 +98,9 @@ func addAWSLambda(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// if err := lambda.GenerateLambdaHandler(cfg); err != nil {
-	// 	return err
-	// }
+	if err := lambda.AddHandler(cfg); err != nil {
+		return err
+	}
 
 	if err := config.SaveConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)

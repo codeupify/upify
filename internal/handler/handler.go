@@ -47,7 +47,7 @@ func AddHandlerSection(handlerPath string, sectionName string, sectionContent st
 	}
 
 	if strings.Contains(string(content), sectionName) {
-		fmt.Printf("Handler section already exists: %s\n", sectionName)
+		fmt.Printf("Handler section already exists in %s\n", handlerPath)
 		return nil
 	}
 

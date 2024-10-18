@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/codeupify/upify/internal/config"
-	"github.com/codeupify/upify/internal/framework"
 	"github.com/codeupify/upify/internal/handler"
 	"github.com/codeupify/upify/internal/lang"
 	template "github.com/codeupify/upify/internal/template"
@@ -51,12 +50,18 @@ func AddHandler(cfg *config.Config) error {
 		return fmt.Errorf("upify_handler file does not exist at %s", targetPath)
 	}
 
-	var handlerCode string
+	var (
+		handlerCode string
+		mainCode    string
+	)
+
 	switch cfg.Language {
 	case lang.Python:
 		handlerCode = pythonCode
+		mainCode = template.PythonMainTemplate
 	case lang.JavaScript, lang.TypeScript:
 		handlerCode = nodeCode
+		mainCode = template.NodeMainTemplate
 	default:
 		return fmt.Errorf("unsupported language: %s", cfg.Language)
 	}
@@ -67,27 +72,19 @@ func AddHandler(cfg *config.Config) error {
 		return err
 	}
 
-	var mainCode string
-	switch cfg.Framework {
-	case framework.Flask:
-		mainCode = template.PythonMainTemplate
-	case framework.Express:
-		mainCode = template.NodeMainTemplate
-	default:
-		mainCode = ""
-	}
-
-	mainPath := handler.GetMainPath(cfg.Language)
-	_, err = os.Stat(mainPath)
-	if os.IsNotExist(err) {
-		fmt.Println("Saving upify_main to:", mainPath)
-		if err := os.WriteFile(mainPath, []byte(mainCode), 0644); err != nil {
+	if cfg.Framework == "" {
+		mainPath := handler.GetMainPath(cfg.Language)
+		_, err = os.Stat(mainPath)
+		if os.IsNotExist(err) {
+			fmt.Println("Saving upify_main to:", mainPath)
+			if err := os.WriteFile(mainPath, []byte(mainCode), 0644); err != nil {
+				return err
+			}
+		} else if err == nil {
+			fmt.Printf("Main already exists at %s\n", mainPath)
+		} else {
 			return err
 		}
-	} else if err == nil {
-		fmt.Printf("upify_main already exists at %s", mainPath)
-	} else {
-		return err
 	}
 
 	return nil
