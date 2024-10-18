@@ -86,31 +86,6 @@ var initCmd = &cobra.Command{
 			selectedLanguage = language
 		}
 
-		// if selectedLanguage == config.Python {
-		// 	pythonVersion, err := detectPythonVersion()
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	ret, err := askRuntimeVersion(pythonVersion, "Python")
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	selectedRuntime = ret
-		// } else if selectedLanguage == config.JavaScript || selectedLanguage == config.TypeScript {
-		// 	nodeVersion, err := detectNodeVersion()
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	ret, err := askRuntimeVersion(nodeVersion, "Node")
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	selectedRuntime = ret
-		// }
-
 		ret, err := askProjectName()
 		if err != nil {
 			return err
