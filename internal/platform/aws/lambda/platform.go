@@ -66,25 +66,15 @@ func AddHandler(cfg *config.Config) error {
 		return fmt.Errorf("unsupported language: %s", cfg.Language)
 	}
 
-	handlerCode = strings.ReplaceAll(handlerCode, "{APP_VAR}", cfg.AppVar)
+	appVar := "app"
+	if cfg.AppVar != "" {
+		appVar = cfg.AppVar
+	}
+
+	handlerCode = strings.ReplaceAll(handlerCode, "{APP_VAR}", appVar)
 	err := handler.AddHandlerSection(targetPath, "aws-lambda", handlerCode)
 	if err != nil {
 		return err
-	}
-
-	if cfg.Framework == "" {
-		mainPath := handler.GetMainPath(cfg.Language)
-		_, err = os.Stat(mainPath)
-		if os.IsNotExist(err) {
-			fmt.Println("Saving upify_main to:", mainPath)
-			if err := os.WriteFile(mainPath, []byte(mainCode), 0644); err != nil {
-				return err
-			}
-		} else if err == nil {
-			fmt.Printf("Main already exists at %s\n", mainPath)
-		} else {
-			return err
-		}
 	}
 
 	return nil
