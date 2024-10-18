@@ -8,7 +8,13 @@ import (
 
 	"github.com/codeupify/upify/internal/config"
 	"github.com/codeupify/upify/internal/lang"
+	"github.com/codeupify/upify/internal/template"
 )
+
+const pythonHandlerCode = `import os
+from {ENTRYPOINT} import app`
+
+const nodeHandlerCode = `const app = require('./{ENTRYPOINT}');`
 
 func GetHandlerFileName(language lang.Language) string {
 	switch language {
@@ -61,7 +67,7 @@ func AddHandlerSection(handlerPath string, sectionName string, sectionContent st
 	return nil
 }
 
-func AddHandler(cfg *config.Config, platform string, handlerCode string) error {
+func AddPlatformHandler(cfg *config.Config, platform string, handlerCode string) error {
 
 	if cfg.Framework != "" && cfg.Entrypoint == "" {
 		return fmt.Errorf("entrypoint is not specified in the configuration")
@@ -85,6 +91,64 @@ func AddHandler(cfg *config.Config, platform string, handlerCode string) error {
 	err := AddHandlerSection(targetPath, "aws-lambda", handlerCode)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func AddHandler(cfg *config.Config) error {
+	var handlerCode string
+
+	switch cfg.Language {
+	case lang.Python:
+		handlerCode = pythonHandlerCode
+	case lang.JavaScript, lang.TypeScript:
+		handlerCode = nodeHandlerCode
+	default:
+		return fmt.Errorf("unsupported language: %s", cfg.Language)
+	}
+
+	targetPath := GetHandlerPath(cfg.Language)
+	if _, err := os.Stat(targetPath); err == nil {
+		fmt.Printf("Handler file already exists at %s\n", targetPath)
+	}
+
+	entrypoint := cfg.Entrypoint
+	if entrypoint == "" {
+		entrypoint = "upify_main"
+	} else {
+		entrypoint = strings.TrimSuffix(entrypoint, filepath.Ext(entrypoint))
+	}
+
+	handlerCode = strings.ReplaceAll(handlerCode, "{ENTRYPOINT}", entrypoint)
+	err := os.WriteFile(targetPath, []byte(handlerCode), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing file: %v", err)
+	}
+
+	// Write out the main file
+	if cfg.Entrypoint == "" {
+
+		var mainCode string
+		switch cfg.Language {
+		case lang.Python:
+			mainCode = template.PythonMainTemplate
+		case lang.JavaScript, lang.TypeScript:
+			mainCode = template.NodeMainTemplate
+		default:
+			return fmt.Errorf("unsupported language: %s", cfg.Language)
+		}
+
+		mainPath := GetMainPath(cfg.Language)
+		if _, err := os.Stat(mainPath); err == nil {
+			fmt.Printf("Main file already exists at %s\n", mainPath)
+		} else {
+
+			err = os.WriteFile(mainPath, []byte(mainCode), 0644)
+			if err != nil {
+				return fmt.Errorf("error writing file: %v", err)
+			}
+		}
 	}
 
 	return nil

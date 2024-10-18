@@ -45,5 +45,5 @@ func AddHandler(cfg *config.Config) error {
 		return fmt.Errorf("unsupported language: %s", cfg.Language)
 	}
 
-	return handler.AddHandler(cfg, "gcp-cloudrun", handlerCode)
+	return handler.AddPlatformHandler(cfg, "gcp-cloudrun", handlerCode)
 }

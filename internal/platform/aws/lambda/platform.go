@@ -44,5 +44,5 @@ func AddHandler(cfg *config.Config) error {
 		return fmt.Errorf("unsupported language: %s", cfg.Language)
 	}
 
-	return handler.AddHandler(cfg, "aws-lambda", handlerCode)
+	return handler.AddPlatformHandler(cfg, "aws-lambda", handlerCode)
 }
