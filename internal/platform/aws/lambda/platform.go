@@ -4,10 +4,11 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/codeupify/upify/internal/config"
+	"github.com/codeupify/upify/internal/framework"
+	"github.com/codeupify/upify/internal/handler"
 	"github.com/codeupify/upify/internal/lang"
 	template "github.com/codeupify/upify/internal/template"
 )
@@ -37,13 +38,6 @@ func AddConfig(cfg *config.Config, region string, runtime string) error {
 
 func AddHandler(cfg *config.Config) error {
 
-	var (
-		handlerTemplate   string
-		handlerOutputPath string
-		mainTemplate      string
-		mainOutputPath    string
-	)
-
 	if cfg.Framework != "" && cfg.Entrypoint == "" {
 		return fmt.Errorf("entrypoint is not specified in the configuration")
 	}
@@ -52,67 +46,48 @@ func AddHandler(cfg *config.Config) error {
 		return fmt.Errorf("app variable is not specified in the configuration")
 	}
 
-	extension := ""
-	switch cfg.Language {
-	case lang.Python:
-		extension = ".py"
-	case lang.JavaScript, lang.TypeScript:
-		extension = ".js"
-	default:
-		return fmt.Errorf("unsupported language: %s", cfg.Language)
-	}
-
-	targetPath := filepath.Join(".", "upify_handler"+extension)
-
+	targetPath := handler.GetHandlerPath(cfg.Language)
 	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 		return fmt.Errorf("upify_handler file does not exist at %s", targetPath)
 	}
 
-	if cfg.Language == lang.Python {
-		handlerTemplate = template.PythonHandlerTemplate
-		handlerOutputPath = filepath.Join(".", "upify_handler.py")
-
-		if cfg.Framework != "" {
-			mainTemplate = template.PythonMainTemplate
-			mainOutputPath = filepath.Join(".", "upify_main.py")
-		}
-	} else if cfg.Language == lang.JavaScript || cfg.Language == lang.TypeScript {
-		handlerTemplate = template.NodeHandlerTemplate
-		handlerOutputPath = filepath.Join(".", "upify_handler.js")
-
-		if cfg.Framework != "" {
-			mainTemplate = template.NodeMainTemplate
-			mainOutputPath = filepath.Join(".", "upify_main.js")
-		}
+	var handlerCode string
+	switch cfg.Language {
+	case lang.Python:
+		handlerCode = pythonCode
+	case lang.JavaScript, lang.TypeScript:
+		handlerCode = nodeCode
+	default:
+		return fmt.Errorf("unsupported language: %s", cfg.Language)
 	}
 
-	handlerContent := strings.ReplaceAll(handlerTemplate, "{ENTRYPOINT}", filepath.Base(cfg.Entrypoint))
-	handlerContent = strings.ReplaceAll(handlerContent, "{APP_VAR}", cfg.AppVar)
-
-	handlerPath := filepath.Join(".", handlerOutputPath)
-	_, err := os.Stat(handlerPath)
-
-	if err == "" {
-		return fmt.Printf("handler file already exists at %s", handlerPath)
+	handlerCode = strings.ReplaceAll(handlerCode, "{APP_VAR}", cfg.AppVar)
+	err := handler.AddHandlerSection(targetPath, "aws-lambda", handlerCode)
+	if err != nil {
+		return err
 	}
 
-	fmt.Println("Saving upify_handler to:", handlerPath)
-	if err := os.WriteFile(handlerPath, []byte(handlerContent), 0644); err != nil {
-		return fmt.Errorf("failed to write lambda handler file: %w", err)
+	var mainCode string
+	switch cfg.Framework {
+	case framework.Flask:
+		mainCode = template.PythonMainTemplate
+	case framework.Express:
+		mainCode = template.NodeMainTemplate
+	default:
+		mainCode = ""
 	}
 
-	if mainOutputPath != "" {
-		if _, err := os.Stat(mainOutputPath); err == nil {
-			return fmt.Errorf("main file already exists at %s", mainOutputPath)
+	mainPath := handler.GetMainPath(cfg.Language)
+	_, err = os.Stat(mainPath)
+	if os.IsNotExist(err) {
+		fmt.Println("Saving upify_main to:", mainPath)
+		if err := os.WriteFile(mainPath, []byte(mainCode), 0644); err != nil {
+			return err
 		}
-
-		fmt.Println("Saving upify_main to:", mainOutputPath)
-		err := os.WriteFile(mainOutputPath, []byte(mainTemplate), 0644)
-		if err != nil {
-			return fmt.Errorf("failed to write lambda main file: %w", err)
-		}
-
-		fmt.Printf("\nAdd your code to %s to wrap your script with request/response\n", mainOutputPath)
+	} else if err == nil {
+		fmt.Printf("upify_main already exists at %s", mainPath)
+	} else {
+		return err
 	}
 
 	return nil

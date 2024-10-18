@@ -10,6 +10,7 @@ import (
 
 	"github.com/codeupify/upify/internal/config"
 	"github.com/codeupify/upify/internal/fs"
+	"github.com/codeupify/upify/internal/handler"
 	"github.com/codeupify/upify/internal/lang"
 	"github.com/codeupify/upify/internal/lang/node"
 	"google.golang.org/api/iterator"
@@ -25,9 +26,9 @@ func Deploy(cfg *config.Config) error {
 		return err
 	}
 
-	handlerPath := fs.GetHandlerPath(cfg.Language)
+	handlerPath := handler.GetHandlerPath(cfg.Language)
 	if _, err := os.Stat(handlerPath); os.IsNotExist(err) {
-		return fmt.Errorf("%s not found in current working directory", fs.GetHandlerFileName(cfg.Language))
+		return fmt.Errorf("%s not found in current working directory", handler.GetHandlerFileName(cfg.Language))
 	}
 
 	envVars, err := fs.LoadEnvVariables()
