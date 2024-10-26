@@ -1,0 +1,14 @@
+{
+    "name": "weather-app",
+    "version": "1.0.0",
+    "description": "A simple weather data fetcher using OpenWeatherMap API",
+    "main": "index.js",
+    "scripts": {
+      "start": "node index.js"
+    },
+    "dependencies": {
+      "axios": "^0.21.1"
+    },
+    "author": "",
+    "license": "ISC"
+  }

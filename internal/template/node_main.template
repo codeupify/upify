@@ -1,0 +1,13 @@
+const express = require('express');
+
+/* ADD YOUR IMPORTS HERE */
+
+const app = express();
+
+app.get('/', async (req, res) => {
+
+    /* ADD YOUR CODE HERE */
+    
+});
+
+module.exports = app;

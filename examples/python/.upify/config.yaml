@@ -1,0 +1,11 @@
+name: python
+language: python
+package_manager: pip
+aws-lambda:
+  region: us-east-1
+  role_name: python-role
+  runtime: python3.12
+gcp-cloudrun:
+  region: us-central1
+  project_id: upify-438115
+  runtime: python312
