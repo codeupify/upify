@@ -46,10 +46,9 @@ You can install the latest version of upify from GitHub by following these steps
     ```
 
 #### For Windows:
-1. Download the latest release for your operating system from the [GitHub releases page](https://github.com/codeupify/upify/releases).
-2. Unpack the binary.
-3. Add the directory containing the binary to your system's `PATH`.
-4. Verify the installation by opening a new Command Prompt and running `upify --help`.
+1. Download the latest release binary for your operating system from the [GitHub releases page](https://github.com/codeupify/upify/releases).
+2. Add the directory containing the binary to your system's `PATH`.
+3. Verify the installation by opening a new Command Prompt and running `upify --help`.
 
 
 ## Usage
