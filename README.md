@@ -1,13 +1,15 @@
-# upify
+# Upify
 
-A CLI tool that streamlines cloud deployment. Designed to be platform, language, and framework agnostic.
+<img align="right" src="assets/carbon.png" />
+
+A platform-agnostic CLI tool that makes it easy to deploy applications to the cloud.
 
 - **Quick and simple cloud deployment**
-- **Multi-platform support**: Deploy to a single platform or multiple platforms simultaneously. Currently supports AWS Lambda and GCP Cloud Run
+- **Platform-agnostic**: Deploy to a single platform or multiple platforms simultaneously. Currently supports AWS Lambda and GCP Cloud Run
 - **Multi-framework support**: Currently supports Flask and Express
 - **Multi-runtime support**: Currently supports Python and Node.js
-- **Adapts to your project structure**: Wraps your existing project
-- **Generates version-controlled and adjustable configs**
+- **Fits your project structure**: Wraps your existing code
+- **Configurable and version-controlled**: Generates adjustable configurations
 
 
 ## Installation
@@ -76,7 +78,7 @@ upify platform add [platform]
 To deploy your project, use the following command:
 
 ```bash
-upify deploy aws-lambda
+upify deploy [platform]
 ```
 
 *Note: You must have your cloud credentials set up before deploying. See the [Authentication](#authentication) section for more details.*
