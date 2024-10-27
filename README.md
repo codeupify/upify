@@ -91,7 +91,7 @@ upify deploy aws-lambda
 - [Typescript without a framework](/examples/typescript/README.md)
 
 
-## [Authentication](#authentication)
+## Authentication
 
 ### AWS - Lambda
 
@@ -100,7 +100,7 @@ upify deploy aws-lambda
 1. Log into your AWS Console
 2. Go to IAM (Identity and Access Management)
 3. Create a new IAM user or select an existing one
-4. Attach permissions (Required permissions can be found [here](#aws-lambda-required-permissions))
+4. Attach permissions (Required permissions can be found [here](#aws-required-permissions))
 5. Under "Security credentials", create a new access key and save those credentials
 
 #### Configuring Credentials
@@ -144,7 +144,7 @@ export AWS_DEFAULT_REGION="us-east-1"
 ```
 
 
-### [Required Permissions](#aws-lambda-required-permissions)
+### AWS Required Permissions
 ```json
 {
     "Version": "2012-10-17",
@@ -181,7 +181,7 @@ export AWS_DEFAULT_REGION="us-east-1"
 
 #### Setting up GCP Project
 1. Log into GCP Console
-2. Enable required APIs (Required APIs can be found [here](#gcp-cloudrun-required-permissions))
+2. Enable required APIs (Required APIs can be found [here](#gcp-required-permissions))
 
 #### Configuring Credentials
 
@@ -197,7 +197,7 @@ gcloud config set project YOUR_PROJECT_ID
 1. Create a service account in GCP Console:
     1. Go to IAM & Admin > Service Accounts
     2. Click "Create Service Account"
-    3. Add required roles (Required roles can be found [here](#gcp-cloudrun-required-permissions))
+    3. Add required roles (Required roles can be found [here](#gcp-required-permissions))
 2. Download service account key (JSON format)
 3. Set the credentials:
 
@@ -205,7 +205,7 @@ gcloud config set project YOUR_PROJECT_ID
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
 ```
 
-### [Required Permissions](#gcp-cloudrun-required-permissions)
+### GCP Required Permissions
 Required Roles:
 
 - Cloud Functions Admin (`roles/cloudfunctions.admin`)
