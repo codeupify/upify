@@ -2,14 +2,19 @@
 
 <img align="right" src="assets/carbon.png" />
 
-A platform-agnostic CLI tool that makes it easy to deploy applications to the cloud.
+A platform-agnostic CLI tool that simplifies cloud deployment for applications
 
 - **Quick and simple cloud deployment**
-- **Platform-agnostic**: Deploy to a single platform or multiple platforms simultaneously. Currently supports AWS Lambda and GCP Cloud Run
-- **Multi-framework support**: Currently supports Flask and Express
-- **Multi-runtime support**: Currently supports Python and Node.js
-- **Fits your project structure**: Wraps your existing code
-- **Configurable and version-controlled**: Generates adjustable configurations
+- **Platform-agnostic**
+- **Multi-framework support**
+- **Multi-runtime support**
+- **Wraps your existing project**
+- **Generates version-controlled and adjustable configs**
+
+*Currently Supports*
+- Cloud Providers: AWS Lambda, GCP Cloud Run
+- Frameworks: Flask, Express
+- Runtimes: Python, Node.js
 
 
 ## Installation
