@@ -5,6 +5,7 @@
 A platform-agnostic CLI tool that simplifies cloud deployment for applications
 
 - **Quick and simple cloud deployment**
+- **Uses serverless**
 - **Platform-agnostic**
 - **Multi-framework support**
 - **Multi-runtime support**
