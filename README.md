@@ -1,6 +1,6 @@
 # Upify
 
-<img align="right" src="assets/carbon.png" />
+<img align="right" src="docs/assets/carbon.png" />
 
 A platform-agnostic CLI tool that simplifies cloud deployment for applications
 
@@ -17,6 +17,16 @@ A platform-agnostic CLI tool that simplifies cloud deployment for applications
 - Frameworks: Flask, Express
 - Runtimes: Python, Node.js
 
+## Documentation
+
+View the [online documentation](https://codeupify.github.io/upify):
+
+* [Getting Started](https://codeupify.github.io/upify/getting-started)
+* [Commands](https://codeupify.github.io/upify/commands)  
+* [Configuration](https://codeupify.github.io/upify/configuration)
+* [Wrappers](https://codeupify.github.io/upify/wrappers)
+* [Environment Variables](https://codeupify.github.io/upify/environment-variables)
+* [Provider Authentication](#provider-authentication)
 
 ## Installation
 
@@ -71,6 +81,10 @@ upify init
 
 This command will generate config and wrapper files. Depending on the options selected, you may need to adjust the generated code and config files. Follow the instructions provided in the command output.
 
+#### Environment Variables
+
+Add environment variables to `.upify/.env`
+
 ### Add a platform
 
 To add cloud platform support, run:
@@ -87,18 +101,18 @@ To deploy your project, use the following command:
 upify deploy [platform]
 ```
 
-*Note: You must have your cloud credentials set up before deploying. See the [Authentication](#authentication) section for more details.*
+*Note: You must have your cloud credentials set up before deploying. See the [Authentication](#provider-authentication) for more details.*
 
 ## Example projects
 
-- [Flask](/examples/flask/README.md)
-- [Express](/examples/express/README.md)
-- [Python without a framework](/examples/python/README.md)
-- [Javascript without a framework](/examples/javascript/README.md)
-- [Typescript without a framework](/examples/typescript/README.md)
+- [Flask](/examples/flask)
+- [Express](/examples/express)
+- [Python without a framework](/examples/python)
+- [Javascript without a framework](/examples/javascript)
+- [Typescript without a framework](/examples/typescript)
 
 
-## Authentication
+## Provider Authentication
 
 ### AWS - Lambda
 
@@ -229,6 +243,3 @@ Required APIs:
 - Artifact Registry API
 - Cloud Resource Manager API
 - Cloud Storage API
-
-
-
