@@ -1,0 +1,30 @@
+title: Upify
+description: Upify documentation
+remote_theme: just-the-docs/just-the-docs
+
+markdown: kramdown
+plugins:
+  - jekyll-relative-links
+  - jekyll-seo-tag
+
+aux_links:
+  "Upify on GitHub":
+    - "//github.com/codeupify/upify"
+
+nav_enabled: true
+
+nav:
+  - title: Home
+    url: /upify/
+  - title: Getting Started
+    url: /upify/getting-started
+  - title: Commands
+    url: /upify/commands
+  - title: Configuration
+    url: /upify/configuration
+  - title: Wrappers
+    url: /upify/wrappers
+  - title: Environment Variables
+    url: /upify/environment-variables
+  - title: Provider Authentication
+    url: https://github.com/codeupify/upify#provider-authentication
