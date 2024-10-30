@@ -105,12 +105,7 @@ upify deploy [platform]
 
 ## Example projects
 
-- [Flask](/examples/flask)
-- [Express](/examples/express)
-- [Python without a framework](/examples/python)
-- [Javascript without a framework](/examples/javascript)
-- [Typescript without a framework](/examples/typescript)
-
+Visit our [examples directory](https://github.com/codeupify/upify/tree/main/examples) for sample implementations
 
 ## Provider Authentication
 
