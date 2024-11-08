@@ -18,10 +18,10 @@ from main import app
 
 handler = None
 
-if os.getenv("UPIFY_DEPLOY_PLATFORM") == "aws-lambda":
+if os.getenv("UPIFY_DEPLOY_PLATFORM") == "aws":
     from apig_wsgi import make_lambda_handler
     handler = make_lambda_handler(app)
-if os.getenv("UPIFY_DEPLOY_PLATFORM") == "gcp-cloudrun":
+if os.getenv("UPIFY_DEPLOY_PLATFORM") == "gcp":
     import functions_framework
 
     @functions_framework.http

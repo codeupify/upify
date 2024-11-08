@@ -1,12 +1,14 @@
-package lambda
+package aws
 
 import (
 	_ "embed"
 	"fmt"
+	"strings"
 
 	"github.com/codeupify/upify/internal/config"
-	"github.com/codeupify/upify/internal/handler"
+	"github.com/codeupify/upify/internal/infra"
 	"github.com/codeupify/upify/internal/lang"
+	"github.com/codeupify/upify/internal/platform"
 )
 
 const pythonCode = `if os.getenv("UPIFY_DEPLOY_PLATFORM") == "aws-lambda":
@@ -22,17 +24,14 @@ const nodeCode = `if (process.env.UPIFY_DEPLOY_PLATFORM === 'aws-lambda') {
       module.exports.handler = serverless(expressApp);
 }`
 
-func AddConfig(cfg *config.Config, region string, runtime string) error {
+//go:embed templates/main.tmpl
+var MainTemplate string
 
-	cfg.AWSLambda = &config.AWSLambdaConfig{
-		Region:   region,
-		RoleName: fmt.Sprintf("%s-role", cfg.Name),
-		Runtime:  runtime,
-	}
-	return nil
-}
+//go:embed templates/main.module.tmpl
+var MainModuleTemplate string
 
-func AddHandler(cfg *config.Config) error {
+func AddPlatform(cfg *config.Config, region string, runtime string) error {
+	fmt.Println("Adding AWS handlers...")
 
 	var handlerCode string
 	switch cfg.Language {
@@ -44,5 +43,17 @@ func AddHandler(cfg *config.Config) error {
 		return fmt.Errorf("unsupported language: %s", cfg.Language)
 	}
 
-	return handler.AddPlatformHandler(cfg, "aws-lambda", handlerCode)
+	err := infra.AddPlatformHandler(cfg, "aws-lambda", handlerCode)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Setting up AWS Lambda infrastructure...")
+
+	mainContent := MainTemplate
+	mainContent = strings.Replace(mainContent, "{LAMBDA_NAME}", cfg.Name, -1)
+	mainContent = strings.Replace(mainContent, "{REGION}", region, -1)
+	mainContent = strings.Replace(mainContent, "{RUNTIME}", runtime, -1)
+
+	return infra.AddPlatform(platform.AWS, mainContent, MainModuleTemplate)
 }

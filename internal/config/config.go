@@ -22,22 +22,6 @@ type Config struct {
 	PackageManager lang.PackageManager `yaml:"package_manager"`
 	Entrypoint     string              `yaml:"entrypoint,omitempty"`
 	AppVar         string              `yaml:"app_var,omitempty"`
-	AWSLambda      *AWSLambdaConfig    `yaml:"aws-lambda,omitempty"`
-	GCPCloudRun    *GCPCloudRunConfig  `yaml:"gcp-cloudrun,omitempty"`
-}
-
-type AWSLambdaConfig struct {
-	Region   string `yaml:"region"`
-	RoleName string `yaml:"role_name"`
-	Runtime  string `yaml:"runtime"`
-	Memory   int    `yaml:"memory,omitempty"`
-}
-
-type GCPCloudRunConfig struct {
-	Region    string `yaml:"region"`
-	ProjectId string `yaml:"project_id"`
-	Runtime   string `yaml:"runtime"`
-	Memory    int    `yaml:"memory,omitempty"`
 }
 
 func GetConfigFilePath() string {

@@ -1,0 +1,42 @@
+provider "aws" {
+  region = "{REGION}"
+}
+
+variable "env_vars" {
+  type        = map(string)
+  description = "Environment variables for the function"
+  default     = {}
+}
+
+variable "source_zip_path" {
+  type        = string
+  description = "Location of the source zip file"
+}
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+module "aws_lambda" {
+    source = "../../../modules/aws"
+
+    lambda_name = "{LAMBDA_NAME}"
+    runtime     = "{RUNTIME}"
+
+    env_vars = var.env_vars
+    source_zip_path = var.source_zip_path
+
+    providers = {
+        aws = aws
+    }
+}
+
+output "lambda_function_url" {
+  description = "The URL of the AWS Lambda Function"
+  value       = module.aws_lambda.lambda_function_url
+}

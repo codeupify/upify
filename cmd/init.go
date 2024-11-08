@@ -10,7 +10,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/codeupify/upify/internal/config"
 	"github.com/codeupify/upify/internal/framework"
-	"github.com/codeupify/upify/internal/handler"
+	"github.com/codeupify/upify/internal/infra"
 	"github.com/codeupify/upify/internal/lang"
 	"github.com/spf13/cobra"
 )
@@ -120,12 +120,12 @@ var initCmd = &cobra.Command{
 			AppVar:         appVar,
 		}
 
-		if err := handler.AddHandlerFile(cfg); err != nil {
+		if err := infra.AddHandlerFile(cfg); err != nil {
 			return err
 		}
 
 		if entrypoint == "" {
-			if err := handler.AddMainFile(cfg); err != nil {
+			if err := infra.AddMainFile(cfg); err != nil {
 				return err
 			}
 		}
@@ -134,10 +134,15 @@ var initCmd = &cobra.Command{
 			return fmt.Errorf("failed to save configuration: %w", err)
 		}
 
+		err = infra.AddEnvironmentFile()
+		if err != nil {
+			return err
+		}
+
 		fmt.Println("Done!")
 
 		if entrypoint == "" {
-			mainPath := handler.GetMainPath(selectedLanguage)
+			mainPath := infra.GetMainPath(selectedLanguage)
 			fmt.Printf("\n\033[1mImportant!\033[0m To finish the configuration wrap your script by modifying the file at \033[1m%s\033[0m\n", mainPath)
 		}
 

@@ -41,10 +41,10 @@ upify init
 
 4. Add cloud platform:
 ```bash
-upify platform add aws-lambda
+upify platform add aws
 ```
 
 5. Deploy:
 ```bash
-upify deploy aws-lambda
+upify deploy aws
 ```

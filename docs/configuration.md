@@ -19,23 +19,7 @@ entrypoint: main.py
 app_var: app
 ```
 
-## AWS Lambda Configuration
-```yaml
-aws-lambda:
-  region: us-east-1
-  role_name: lambda-role
-  runtime: python3.12 | nodejs20.x
-```
-
-## GCP Cloud Run Configuration
-```yaml
-gcp-cloudrun:
-  region: us-central1
-  project_id: your-project-id
-  runtime: python312 | nodejs20
-```
-
-## Reference
+### Reference
 
 | Field | Description |
 |-------|-------------|
@@ -45,3 +29,12 @@ gcp-cloudrun:
 | package_manager | Package management tool |
 | entrypoint | Main application file |
 | app_var | App variable name in entrypoint |
+
+# Terraform
+
+Upify leverages Terraform for infrastructure management, terraform files are written to:
+
+- `.upify/environments`
+- `.upify/modules`
+
+At this time Upify only supports a single `prod` environment, but in the future we will add support for additional environments
