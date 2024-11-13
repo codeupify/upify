@@ -1,11 +1,3 @@
 name: typescript
 language: typescript
 package_manager: npm
-aws-lambda:
-  region: us-east-1
-  role_name: typescript-role
-  runtime: nodejs18.x
-gcp-cloudrun:
-  region: us-central1
-  project_id: upify-438115
-  runtime: nodejs18
