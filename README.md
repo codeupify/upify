@@ -10,7 +10,7 @@ A platform-agnostic CLI tool that simplifies cloud deployment for applications
 - **Multi-framework support**
 - **Multi-runtime support**
 - **Wraps your existing project**
-- **Generates version-controlled and adjustable configs**
+- **Generates Terraform configs**
 
 *Currently Supports*
 - Cloud Providers: AWS Lambda, GCP Cloud Run
