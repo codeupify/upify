@@ -1,0 +1,99 @@
+variable "lambda_name" {
+  type        = string
+  description = "Name of the Lambda function"
+}
+
+variable "runtime" {
+  type        = string
+  description = "Runtime for Lambda function (e.g., python3.10)"
+}
+
+variable "env_vars" {
+  type        = map(string)
+  description = "Environment variables for the function"
+  default     = {}
+}
+
+variable "source_zip_path" {
+  type        = string
+  description = "Location of the source zip file"
+  default     = ""
+}
+
+locals {
+  base_env_vars = {
+    UPIFY_DEPLOY_PLATFORM = "aws-lambda"
+  }
+  
+  final_env_vars = merge(local.base_env_vars, var.env_vars)
+}
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+resource "aws_iam_role" "lambda_exec_role" {
+  name = "${var.lambda_name}_exec_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "sts:AssumeRole",
+        Effect = "Allow",
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_basic_exec" {
+  role       = aws_iam_role.lambda_exec_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_lambda_function" "lambda_function" {
+  function_name = var.lambda_name
+  role          = aws_iam_role.lambda_exec_role.arn
+  handler       = "upify_handler.handler"
+  runtime       =  var.runtime
+  filename      = var.source_zip_path
+
+  environment {
+    variables = local.final_env_vars
+  }
+  
+  timeouts {
+    create = "3m"
+    update = "2m"
+  }
+}
+
+resource "aws_lambda_function_url" "public_url" {
+  function_name = aws_lambda_function.lambda_function.function_name
+  authorization_type = "NONE" 
+  
+  timeouts {
+    create = "2m"
+  }
+}
+
+resource "aws_lambda_permission" "public_invoke" {
+  statement_id  = "FunctionURLAllowPublicAccess"
+  action        = "lambda:InvokeFunctionUrl"
+  function_name = aws_lambda_function.lambda_function.function_name
+  principal     = "*"
+  function_url_auth_type  = "NONE"
+}
+
+output "lambda_function_url" {
+  description = "The URL of the Lambda Function URL endpoint"
+  value       = aws_lambda_function_url.public_url.function_url
+}

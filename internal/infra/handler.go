@@ -1,4 +1,4 @@
-package handler
+package infra
 
 import (
 	"fmt"
@@ -8,7 +8,8 @@ import (
 
 	"github.com/codeupify/upify/internal/config"
 	"github.com/codeupify/upify/internal/lang"
-	"github.com/codeupify/upify/internal/template"
+	"github.com/codeupify/upify/internal/lang/node"
+	"github.com/codeupify/upify/internal/lang/python"
 )
 
 const pythonHandlerCode = `import os
@@ -144,9 +145,9 @@ func AddMainFile(cfg *config.Config) error {
 	var mainCode string
 	switch cfg.Language {
 	case lang.Python:
-		mainCode = template.PythonMainTemplate
+		mainCode = python.PythonMainTemplate
 	case lang.JavaScript, lang.TypeScript:
-		mainCode = template.NodeMainTemplate
+		mainCode = node.NodeMainTemplate
 	default:
 		return fmt.Errorf("unsupported language: %s", cfg.Language)
 	}

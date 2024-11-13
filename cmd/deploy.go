@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"github.com/codeupify/upify/internal/config"
-	"github.com/codeupify/upify/internal/platform/aws/lambda"
-	"github.com/codeupify/upify/internal/platform/gcp/cloudrun"
+	"github.com/codeupify/upify/internal/platform"
+	"github.com/codeupify/upify/internal/platform/aws"
+	"github.com/codeupify/upify/internal/platform/gcp"
 	"github.com/spf13/cobra"
 )
 
@@ -13,10 +14,10 @@ var deployCmd = &cobra.Command{
 	Use:   "deploy [platform]",
 	Short: "Deploy the application to a specified platform",
 	Long: `Deploy the application to a specified platform.
-Currently supported platforms: aws-lambda, gcp-cloudrun
+Currently supported platforms: aws, gcp
 
 Example:
-  upify deploy aws-lambda`,
+  upify deploy aws`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		platform := args[0]
@@ -33,26 +34,20 @@ func init() {
 	rootCmd.AddCommand(deployCmd)
 }
 
-func deploy(platform string, cfg *config.Config) error {
-	switch platform {
-	case "aws-lambda":
-		if cfg.AWSLambda == nil {
-			return fmt.Errorf("aws-lambda configuration is not set up. Please run 'upify platform add aws-lambda' first")
+func deploy(platformStr string, cfg *config.Config) error {
+	switch platformStr {
+	case string(platform.AWS):
+		fmt.Println("Deploying to AWS...")
+		if err := aws.Deploy(cfg); err != nil {
+			return fmt.Errorf("failed to deploy to AWS: %w", err)
 		}
-		fmt.Println("Deploying to AWS Lambda...")
-		if err := lambda.Deploy(cfg); err != nil {
-			return fmt.Errorf("failed to deploy to AWS Lambda: %w", err)
-		}
-	case "gcp-cloudrun":
-		if cfg.GCPCloudRun == nil {
-			return fmt.Errorf("gcp-cloudrun configuration is not set up. Please run 'upify platform add gcp-cloudrun' first")
-		}
-		fmt.Println("Deploying to GCP Cloud Run...")
-		if err := cloudrun.Deploy(cfg); err != nil {
-			return fmt.Errorf("failed to deploy to GCP Cloud Run: %w", err)
+	case string(platform.GCP):
+		fmt.Println("Deploying to GCP...")
+		if err := gcp.Deploy(cfg); err != nil {
+			return fmt.Errorf("failed to deploy to GCP: %w", err)
 		}
 	default:
-		return fmt.Errorf("unsupported platform: %s", platform)
+		return fmt.Errorf("unsupported platform: %s", platformStr)
 	}
 
 	return nil

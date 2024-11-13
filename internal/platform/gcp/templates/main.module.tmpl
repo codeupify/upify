@@ -1,0 +1,109 @@
+variable "project_id" {
+  description = "Google Cloud project ID"
+  type        = string
+}
+
+variable "region" {
+  description = "Google Cloud region"
+  type        = string
+  default     = "us-central1"
+}
+
+variable "function_name" {
+  description = "Name of the Cloud Run function"
+  type        = string
+}
+
+variable "runtime" {
+  description = "Runtime for the function (e.g., nodejs14, python310)"
+  type        = string
+}
+
+variable "env_vars" {
+  description = "Environment variables for the Cloud Run function"
+  type        = map(string)
+  default     = {}
+}
+
+variable "source_zip_path" {
+  type        = string
+  description = "Location of the source zip file"
+  default     = ""
+}
+
+locals {
+  base_env_vars = {
+    UPIFY_DEPLOY_PLATFORM = "gcp-cloudrun"
+  }
+  
+  final_env_vars = merge(local.base_env_vars, var.env_vars)
+}
+
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
+    }
+  }
+}
+
+resource "google_storage_bucket" "source_archive_bucket" {
+  name          = "upify-${var.project_id}-${var.function_name}-source"
+  location      = var.region
+  force_destroy = false
+
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      age = 7
+    }
+  }
+}
+
+resource "google_storage_bucket_object" "function_source" {
+  name   = "${var.function_name}.zip"
+  bucket = google_storage_bucket.source_archive_bucket.name
+  source = var.source_zip_path
+}
+
+resource "google_cloudfunctions2_function" "function" {
+  name     = var.function_name
+  location = var.region
+
+  build_config {
+    runtime     = var.runtime
+    entry_point = "handler"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.source_archive_bucket.name
+        object = google_storage_bucket_object.function_source.name
+      }
+    }
+  }
+
+  service_config {
+    timeout_seconds       = 60
+    environment_variables = local.final_env_vars
+    available_memory      = "256M"
+  }
+
+  timeouts {
+    create = "3m"
+    update = "2m"
+  }
+}
+
+resource "google_cloud_run_service_iam_member" "invoker_role" {
+  service = google_cloudfunctions2_function.function.name
+  location = var.region
+  role    = "roles/run.invoker"
+  member  = "allUsers"
+}
+
+output "cloud_run_service_url" {
+  description = "The URL of the deployed Cloud Run service"
+  value       = google_cloudfunctions2_function.function.service_config[0].uri
+}

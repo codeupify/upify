@@ -18,16 +18,16 @@ upify init
 Add platform support to your project.
 
 ```bash
-upify platform add aws-lambda
-upify platform add gcp-cloudrun
+upify platform add aws
+upify platform add gcp
 ```
 
 ## deploy
 Deploy your application to the specified platform.
 
 ```bash
-upify deploy aws-lambda
-upify deploy gcp-cloudrun
+upify deploy aws
+upify deploy gcp
 ```
 
 ## Flags

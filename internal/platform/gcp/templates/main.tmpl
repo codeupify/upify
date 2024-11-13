@@ -1,0 +1,44 @@
+provider "google" {
+  project = "{PROJECT_ID}"
+  region  = "{REGION}"
+}
+
+variable "env_vars" {
+  type        = map(string)
+  description = "Environment variables for the function"
+  default     = {}
+}
+
+variable "source_zip_path" {
+  type        = string
+  description = "Location of the source zip file"
+}
+
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
+    }
+  }
+}
+
+module "gcp_cloudrun" {
+    source = "../../../modules/gcp"
+
+    project_id = "{PROJECT_ID}"
+    function_name = "{FUNCTION_NAME}"
+    runtime     = "{RUNTIME}"
+
+    env_vars = var.env_vars
+    source_zip_path = var.source_zip_path
+
+    providers = {
+        google = google
+    }
+}
+
+output "cloud_run_service_url" {
+  description = "The URL of the GCP CloudRun Function"
+  value       = module.gcp_cloudrun.cloud_run_service_url
+}

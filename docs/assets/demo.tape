@@ -62,7 +62,7 @@ Require echo
 Set Shell "bash"
 Set FontSize 20
 Set Width 1600
-Set Height 500
+Set Height 800
 
 Sleep 1s
 Type@.15s "upify init" Sleep 1s Enter
