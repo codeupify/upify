@@ -76,12 +76,12 @@ Sleep 1s Enter
 Sleep 1s Enter
 
 Sleep 1.5s
-Type@.15s "upify platform add aws-lambda" Sleep 1s Enter
+Type@.15s "upify platform add aws" Sleep 1s Enter
 Sleep 1s Enter
 Sleep 1s Down
 Sleep 1s Enter
 
-Sleep 1.5s
-Type@.15s "upify deploy aws-lambda"  Sleep 1s Enter
+Sleep 6.5s
+Type@.15s "upify deploy aws"  Sleep 1s Enter
 
-Sleep 9s
+Sleep 40s
